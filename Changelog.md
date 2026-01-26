@@ -1,3 +1,7 @@
+2026-01-26: v1.0.22
+
+- And thy children shall return to their own border.
+
 2025-11-05: v1.0.21
 
 - Added French translation, thanks to Fabien Poirier
