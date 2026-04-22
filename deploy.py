@@ -16,7 +16,7 @@ def copyf(src,tgt):
 def get_ver():
     with open('Changelog.md') as f:
         first = list(f.readlines())[0]
-    ver = first[first.find(': v')+3:].strip()
+    ver = first[first.find(': v')+13:].strip()
     return ver
 
 
