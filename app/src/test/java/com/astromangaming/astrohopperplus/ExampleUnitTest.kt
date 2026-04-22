@@ -1,4 +1,4 @@
-package com.astromangaming.astrohopper
+package com.astromangaming.astrohopperplus
 
 import org.junit.Test
 

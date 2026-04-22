@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.astromangaming.astrohopper"
+    namespace = "com.astromangaming.astrohopperplus"
     compileSdk {
         version = release(36) {
             minorApiLevel = 1
@@ -12,11 +12,11 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.astromangaming.astrohopper"
+        applicationId = "com.astromangaming.astrohopperplus"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

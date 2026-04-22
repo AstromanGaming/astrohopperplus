@@ -1,4 +1,4 @@
-package com.astromangaming.astrohopper.ui.theme
+package com.astromangaming.astrohopperplus.ui.theme
 
 import android.app.Activity
 import android.os.Build
@@ -34,7 +34,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun AstroHopperTheme(
+fun AstroHopperPlusTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,

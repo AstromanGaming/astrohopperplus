@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "AstroHopper+"
+rootProject.name = "AstroHopperPlus"
 include(":app")

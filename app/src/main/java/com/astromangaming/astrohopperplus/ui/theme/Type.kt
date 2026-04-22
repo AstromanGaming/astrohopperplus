@@ -1,4 +1,4 @@
-package com.astromangaming.astrohopper.ui.theme
+package com.astromangaming.astrohopperplus.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

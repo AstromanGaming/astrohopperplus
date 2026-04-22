@@ -1,4 +1,4 @@
-package com.astromangaming.astrohopper
+package com.astromangaming.astrohopperplus
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -90,7 +90,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.loadUrl("file:///android_asset/astrohopper/astrohopper.html")
+        webView.loadUrl("file:///android_asset/astrohopperplus/astrohopper.html")
     }
 
     private fun configureWebView() {
@@ -165,7 +165,7 @@ class MainActivity : AppCompatActivity() {
         if (ActivityCompat.shouldShowRequestPermissionRationale(this, permission)) {
             AlertDialog.Builder(this)
                 .setTitle("Permission de localisation")
-                .setMessage("AstroHopper a besoin d'accéder à votre position pour certaines fonctionnalités. Autoriser la localisation ?")
+                .setMessage("AstroHopperPlus a besoin d'accéder à votre position pour certaines fonctionnalités. Autoriser la localisation ?")
                 .setPositiveButton("Autoriser") { _, _ ->
                     ActivityCompat.requestPermissions(this, arrayOf(permission), REQUEST_LOCATION_PERMISSION)
                 }
