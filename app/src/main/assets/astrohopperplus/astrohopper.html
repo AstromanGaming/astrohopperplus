@@ -215,7 +215,7 @@ input[type=submit] { width:10mm;}
 <button class="incdec_but" onclick="showConfig('none');">X</button>
 </span>
 <div class="r2l">
-<p style="text-align:center"><b><span  class="tr">Settings</span> (1.0.0 / 1.0.22)</b></p>
+<p style="text-align:center"><b><span  class="tr">Settings</span> (1.0.1 / 1.0.22)</b></p>
 <p>
 <button class="ui_but" onclick="resetAll();">&#x21bb;</button>
 <input class="dso_selector" id="small_screen" type="checkbox" /><label for="small_screen" class="tr" >Small UI</label> 
@@ -10679,16 +10679,105 @@ window.addEventListener("load", () => {
       right: auto;
     }
 
-    .row { display:flex; gap:8px; margin-bottom:10px; align-items:center; }
-    .row .col { flex:1; display:flex; gap:8px; align-items:center; }
-    label { color:var(--text); font-size:13px; display:flex; gap:8px; align-items:center; }
-    input[type="text"], input[type="number"], input[type="range"] { background:#000; color:var(--text); border:1px solid var(--accent); padding:6px; border-radius:6px; box-sizing:border-box; }
-    input[type="checkbox"] { width:20px; height:20px; accent-color:var(--accent); cursor:pointer; }
-    button.small { background:#000; color:var(--accent); border:1px solid var(--accent); padding:8px; border-radius:6px; cursor:pointer; }
-    #alpaca-log { max-height:220px; overflow:auto; font-size:12px; border-top:1px dashed var(--accent); padding-top:8px; margin-top:8px; color:var(--muted); }
-    #alpaca-gyro-indicator { color:var(--text); font-size:12px; margin-top:6px; text-align:center; }
-    .muted { color:var(--muted); font-size:12px; }
-    @media (min-width:700px){ #alpaca-panel { width:520px } }
+/* layout de base */
+.row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  align-items: center;
+  flex-wrap: wrap;            /* permet au contenu de passer à la ligne si nécessaire */
+  box-sizing: border-box;
+}
+
+/* chaque colonne peut rétrécir et ne forcera pas le conteneur à grandir */
+.row .col {
+  flex: 1 1 0;                /* flex-grow:1; flex-shrink:1; base:0 */
+  min-width: 0;               /* CRUCIAL : permet aux enfants de se réduire correctement */
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* labels et champs */
+label {
+  color: var(--text);
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  white-space: nowrap;        /* évite que le label casse au milieu si tu veux garder sur une ligne */
+}
+
+/* inputs prennent tout l'espace disponible dans leur colonne */
+input[type="text"],
+input[type="number"],
+input[type="range"] {
+  background: #000;
+  color: var(--text);
+  border: 1px solid var(--accent);
+  padding: 6px;
+  border-radius: 6px;
+  box-sizing: border-box;
+  width: 100%;                /* IMPORTANT : occupe l'espace de la colonne */
+  min-width: 0;               /* évite overflow dans certains navigateurs */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* checkbox et boutons */
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+button.small {
+  background: #000;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+/* log et indicateurs */
+#alpaca-log {
+  max-height: 220px;
+  overflow: auto;
+  font-size: 12px;
+  border-top: 1px dashed var(--accent);
+  padding-top: 8px;
+  margin-top: 8px;
+  color: var(--muted);
+  box-sizing: border-box;
+}
+
+#alpaca-gyro-indicator {
+  color: var(--text);
+  font-size: 12px;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* responsive : limite la largeur du panneau sur grands écrans */
+@media (min-width: 700px) {
+  #alpaca-panel { width: 520px; box-sizing: border-box; }
+}
+
+/* petites améliorations pour très petits écrans */
+@media (max-width: 480px) {
+  label { font-size: 12px; }
+  input[type="text"], input[type="number"] { padding: 8px 6px; }
+}
 
     /* Positionnement du toggle : fixé indépendamment pour plus de robustesse */
     #alpaca-toggle {
@@ -10712,6 +10801,7 @@ window.addEventListener("load", () => {
     /* Responsive: si largeur <= 425px, placer le toggle à droite et adapter le panneau */
     @media (max-width: 425px) {
       #alpaca-toggle {
+        top: 9%; 
         left: auto !important;
         right: 8px !important;
         transform: translateX(-65%) !important;
@@ -10885,10 +10975,6 @@ window.addEventListener("load", () => {
       }
     })();
 
-<!-- ============================
-     Script principal Alpaca (Push/Pull, gyro, réseau)
-     ============================ -->
-
 /* ---------- Global state ---------- */
 window.alpaca_state = window.alpaca_state || {
   host: null,
@@ -10903,48 +10989,47 @@ window.alpaca_state = window.alpaca_state || {
 /* ---------- Logging helper ---------- */
 function alpaca_log(msg) {
   const el = document.getElementById('alpaca-log');
-  if(!el) return;
-  const line = document.createElement('div');
-  line.textContent = `${new Date().toISOString()} - ${msg}`;
-  el.insertBefore(line, el.firstChild);
-  console.info('AlpacaLog:', msg);
+  try {
+    if (el) {
+      const line = document.createElement('div');
+      line.textContent = `${new Date().toISOString()} - ${msg}`;
+      el.insertBefore(line, el.firstChild);
+    }
+  } catch (e) { /* ignore DOM errors */ }
+  if (window && window.console) console.info('[Alpaca]', msg);
 }
 
 /* ---------- gdata fallback ---------- */
 window.gdata = window.gdata || { lat: null, lon: null, time: Date.now() };
 
 /* ---------- rayFromPos (conservé) ---------- */
-function rayFromPos(RAd,DEd)
-{
-  if(!window.gdata) return [0,0,0];
+function rayFromPos(RAd, DEd) {
+  if (!window.gdata) return [0, 0, 0];
   var deg2rad = Math.PI / 180;
   var RA = RAd * deg2rad;
   var DE = DEd * deg2rad;
   var jd = gdata.time * 1e-3 / 86400.0 + 2440587.5;
   var tu = jd - 2451545.0;
-  var angle = Math.PI * 2 * (0.7790572732640+1.00273781191135448 * tu);
-  var q = angle + gdata.lon*deg2rad;
+  var angle = Math.PI * 2 * (0.7790572732640 + 1.00273781191135448 * tu);
+  var q = angle + gdata.lon * deg2rad;
   var H = q - RA;
-
   var f = deg2rad * gdata.lat;
-
   var az_y = Math.sin(H);
   var az_x = (Math.cos(H) * Math.sin(f) - Math.tan(DE) * Math.cos(f));
-  var az = Math.atan2(az_y,az_x)
+  var az = Math.atan2(az_y, az_x);
   var sinH = Math.sin(f) * Math.sin(DE) + Math.cos(f) * Math.cos(DE) * Math.cos(H);
-  var hz = Math.asin(sinH)
+  var hz = Math.asin(sinH);
   var ray_n = -Math.cos(az) * Math.cos(hz);
   var ray_e = -Math.sin(az) * Math.cos(hz);
   var ray_u = Math.sin(hz);
-  return [ ray_e, ray_n, ray_u ];
+  return [ray_e, ray_n, ray_u];
 }
 
-/* ---------- Gyro state and listener ---------- */
-window._alpaca_gyro = window._alpaca_gyro || { available:false, alpha:0, beta:0, gamma:0, mapEnabled:true };
+/* ---------- Gyro state and listener (conservé) ---------- */
+window._alpaca_gyro = window._alpaca_gyro || { available: false, alpha: 0, beta: 0, gamma: 0, mapEnabled: true };
 if (!window._deviceOrientationListenerInstalled) {
   window._deviceOrientationListenerInstalled = true;
   window._lastDeviceOrientationEvent = null;
-
   function gyroListener(e) {
     window._lastDeviceOrientationEvent = e;
     const heading = (typeof e.webkitCompassHeading === 'number') ? e.webkitCompassHeading : e.alpha;
@@ -10956,18 +11041,16 @@ if (!window._deviceOrientationListenerInstalled) {
     }
     if (typeof e.beta === 'number') window._alpaca_gyro.beta = e.beta;
     if (typeof e.gamma === 'number') window._alpaca_gyro.gamma = e.gamma;
-    // mapEnabled controlled by startPull/stopPull
   }
-
   if ('ondeviceorientationabsolute' in window) {
-    window.addEventListener('deviceorientationabsolute', gyroListener, { passive:true });
+    window.addEventListener('deviceorientationabsolute', gyroListener, { passive: true });
   }
   if ('ondeviceorientation' in window) {
-    window.addEventListener('deviceorientation', gyroListener, { passive:true });
+    window.addEventListener('deviceorientation', gyroListener, { passive: true });
   }
 }
 
-/* ---------- UI helpers (indicator only; toggle handled by integrated script below) ---------- */
+/* ---------- UI helpers (indicator only) ---------- */
 function onMapGyroEnabledChanged(enabled) {
   const el = document.getElementById('alpaca-gyro-indicator');
   if (!el) return;
@@ -10975,139 +11058,154 @@ function onMapGyroEnabledChanged(enabled) {
   el.style.opacity = enabled ? '1' : '0.6';
 }
 function setUseGyroForMap(enabled) {
-  window._alpaca_gyro = window._alpaca_gyro || { available:false, alpha:0, beta:0, gamma:0, mapEnabled:true };
+  window._alpaca_gyro = window._alpaca_gyro || { available: false, alpha: 0, beta: 0, gamma: 0, mapEnabled: true };
   window._alpaca_gyro.mapEnabled = !!enabled;
   onMapGyroEnabledChanged(!!enabled);
 }
 onMapGyroEnabledChanged(window._alpaca_gyro.mapEnabled);
 
-/* ---------- Network helpers ---------- */
-async function _fetchTimeout(url, opts = {}, timeoutMs = 6000) {
+/* ---------- Robust fetch with diagnostics (remplace _fetchTimeout) ---------- */
+async function fetchWithDiagnostics(url, opts = {}, timeoutMs = 15000) {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const resp = await fetch(url, Object.assign({}, opts, { signal: controller.signal, mode: opts.mode || 'cors' }));
+    const response = await fetch(url, Object.assign({
+      method: opts.method || 'GET',
+      headers: Object.assign({}, opts.headers || {}, { 'Accept': 'application/json' }),
+      body: opts.body || null,
+      mode: opts.mode || 'cors',
+      credentials: opts.credentials || 'same-origin',
+      signal: controller.signal
+    }, opts.fetchOptions || {}));
     clearTimeout(id);
-    return resp;
+    const text = await response.text().catch(() => null);
+    if (!response.ok) {
+      alpaca_log(`Network error ${response.status} ${response.statusText} for ${url}`);
+      console.debug('Alpaca raw response:', text);
+      return { ok: false, status: response.status, statusText: response.statusText, text };
+    }
+    try {
+      const json = text ? JSON.parse(text) : null;
+      return { ok: true, json, text };
+    } catch (e) {
+      return { ok: true, json: null, text };
+    }
   } catch (err) {
     clearTimeout(id);
-    throw err;
+    if (err.name === 'AbortError') {
+      alpaca_log(`Fetch timed out for ${url} (possible network/CORS/mixed-content).`);
+      return { ok: false, error: 'timeout', message: err.message };
+    } else {
+      alpaca_log(`Fetch failed for ${url}: ${err.message}`);
+      console.error(err);
+      return { ok: false, error: 'network', message: err.message };
+    }
   }
 }
 
-async function alpaca_get(prop) {
-  if(!window.alpaca_state || !window.alpaca_state.host) {
+/* ---------- GET helper ---------- */
+async function alpaca_get(prop, options = {}) {
+  if (!window.alpaca_state || !window.alpaca_state.host) {
     alpaca_log('GET aborted: host not set');
     return null;
   }
-  const host = window.alpaca_state.host.replace(/\/$/,'');
+  const host = window.alpaca_state.host.replace(/\/$/, '');
   const device = window.alpaca_state.device || 0;
-  const url = `${host}/api/v1/telescope/${device}/${prop.toLowerCase()}?ClientID=${alpaca_state.clientId}&ClientTransactionID=${++alpaca_state.clientTransactionId}`;
-
+  const url = `${host}/api/v1/telescope/${device}/${prop.toLowerCase()}?ClientID=${alpaca_state.clientId}&ClientTransactionID=${+alpaca_state.clientTransactionId}`;
   try {
     alpaca_log(`GET -> ${prop.toLowerCase()}`);
-    const r = await _fetchTimeout(url, { method: 'GET' }, 6000);
-    const text = await r.text().catch(()=>null);
-    let json = null;
-    try { json = text ? JSON.parse(text) : null; } catch(e) { json = null; }
-
-    if(json && json.ErrorNumber && json.ErrorNumber !== 0) {
-      alpaca_log(`GET ${prop} error: ${json.ErrorMessage || ('ErrorNumber ' + json.ErrorNumber)}`);
-      console.warn('Alpaca GET error object:', json);
+    const r = await fetchWithDiagnostics(url, { method: 'GET', mode: options.mode || 'cors' }, options.timeoutMs || 10000);
+    if (!r.ok) {
+      console.debug('GET diagnostics:', r);
       return null;
     }
-
-    if(json !== null) {
-      if(json.Value !== undefined) return json.Value;
-      if(json.RightAscension !== undefined || json.Declination !== undefined) return json;
-      if(json.value !== undefined) return json.value;
+    // r.json may be null if response is plain text
+    const payload = r.json !== null ? r.json : (r.text || null);
+    // Normalize common Alpaca payload shapes
+    if (payload && typeof payload === 'object') {
+      if (payload.ErrorNumber && payload.ErrorNumber !== 0) {
+        alpaca_log(`GET ${prop} error: ${payload.ErrorMessage || ('ErrorNumber ' + payload.ErrorNumber)}`);
+        console.warn('Alpaca GET error object:', payload);
+        return null;
+      }
+      if (payload.Value !== undefined) return payload.Value;
+      if (payload.RightAscension !== undefined || payload.Declination !== undefined) return payload;
+      if (payload.value !== undefined) return payload.value;
     }
-
-    if(text !== null && text.trim() !== '') {
-      const n = parseFloat(text);
-      if(!isNaN(n)) return n;
+    if (typeof payload === 'string' && payload.trim() !== '') {
+      const n = parseFloat(payload);
+      if (!isNaN(n)) return n;
     }
-
-    alpaca_log(`GET ${prop} returned unexpected payload; check bridge response.`);
-    console.debug('Alpaca GET raw response:', text, json);
-    return null;
-
+    return payload;
   } catch (err) {
-    if(err.name === 'AbortError') {
+    if (err && err.name === 'AbortError') {
       alpaca_log(`GET ${prop} timed out (possible network/CORS).`);
-      console.error('Alpaca GET timeout', err);
     } else {
-      alpaca_log(`GET ${prop} failed: ${err.message}`);
+      alpaca_log(`GET ${prop} failed: ${err && err.message ? err.message : err}`);
       console.error('Alpaca GET failed', err);
     }
     return null;
   }
 }
 
-async function alpaca_put(method, params) {
-  if(!window.alpaca_state || !window.alpaca_state.host) {
+/* ---------- PUT helper ---------- */
+async function alpaca_put(method, params = {}, options = {}) {
+  if (!window.alpaca_state || !window.alpaca_state.host) {
     alpaca_log('PUT aborted: host not set');
     return null;
   }
-  const host = alpaca_state.host.replace(/\/$/,'');
+  const host = alpaca_state.host.replace(/\/$/, '');
   const device = alpaca_state.device || 0;
   const url = `${host}/api/v1/telescope/${device}/${method.toLowerCase()}`;
-
-  const body = new URLSearchParams({
-    ClientID: alpaca_state.clientId,
-    ClientTransactionID: ++alpaca_state.clientTransactionId,
-    ...params
-  });
-
+  // Default to form-encoded body (bridge often expects form data), but allow override
+  let body, headers;
+  if (options.json === true) {
+    headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+    body = JSON.stringify(Object.assign({ ClientID: alpaca_state.clientId, ClientTransactionID: +alpaca_state.clientTransactionId }, params));
+  } else {
+    headers = Object.assign({ 'Content-Type': 'application/x-www-form-urlencoded' }, options.headers || {});
+    const sp = new URLSearchParams(Object.assign({ ClientID: alpaca_state.clientId, ClientTransactionID: +alpaca_state.clientTransactionId }, params));
+    body = sp.toString();
+  }
   try {
-    const r = await _fetchTimeout(url, {
+    const r = await fetchWithDiagnostics(url, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body
-    }, 6000);
-
-    const text = await r.text().catch(()=>null);
-    let json = null;
-    try { json = text ? JSON.parse(text) : null; } catch(e) { json = null; }
-
-    if(!r.ok) {
-      alpaca_log(`PUT ERROR ${r.status}: ${json?.ErrorMessage || text || 'Unknown'}`);
-      console.error('Alpaca PUT error', r.status, json || text);
+      headers,
+      body,
+      mode: options.mode || 'cors',
+      credentials: options.credentials || 'same-origin'
+    }, options.timeoutMs || 10000);
+    if (!r.ok) {
+      alpaca_log(`PUT ERROR ${r.status}: ${r.text || r.message || 'Unknown'}`);
+      console.error('Alpaca PUT error', r);
       return null;
     }
-
     alpaca_log('PUT OK');
-    console.debug('Alpaca PUT response', json || text);
-    return json || text;
-
+    return r.json !== null ? r.json : r.text;
   } catch (err) {
-    if(err.name === 'AbortError') alpaca_log('PUT timed out (possible network/CORS).');
-    else alpaca_log('PUT failed: ' + err.message);
+    if (err && err.name === 'AbortError') alpaca_log('PUT timed out (possible network/CORS).');
+    else alpaca_log('PUT failed: ' + (err && err.message ? err.message : err));
     console.error('Alpaca PUT failed', err);
     return null;
   }
 }
 
-/* ---------- Push / Pull implementations ---------- */
+/* ---------- Push / Pull implementations (améliorés) ---------- */
 async function alpaca_push() {
   const g = window.gdata || {};
   const gyro = window._alpaca_gyro || {};
   const host = (window.alpaca_state && window.alpaca_state.host) || document.getElementById('alpaca-host')?.value;
-  const device = (window.alpaca_state && window.alpaca_state.device) || parseInt(document.getElementById('alpaca-device')?.value || 0,10);
-
+  const device = (window.alpaca_state && window.alpaca_state.device) || parseInt(document.getElementById('alpaca-device')?.value || 0, 10);
   let alpha = null;
   if (gyro && typeof gyro.alpha === 'number') alpha = gyro.alpha;
   if ((alpha === null || alpha === undefined) && window._lastDeviceOrientationEvent && typeof window._lastDeviceOrientationEvent.webkitCompassHeading === 'number') {
     alpha = window._lastDeviceOrientationEvent.webkitCompassHeading;
   }
   if (typeof alpha === 'number') alpha = ((alpha % 360) + 360) % 360;
-
   const lat = (typeof g.lat === 'number') ? g.lat : null;
   const lon = (typeof g.lon === 'number') ? g.lon : null;
-
   let ra = null;
   let dec = (lat !== null) ? lat : 0;
-
   if (typeof alpha === 'number') {
     ra = alpha / 15;
   } else if (lon !== null) {
@@ -11116,43 +11214,39 @@ async function alpaca_push() {
     alpaca_log('Push skipped: no gyro alpha and no GPS lon');
     return;
   }
-
   const sens = parseInt(document.getElementById('alpaca-gyro-sens')?.value || '8', 10);
   const multiplier = 1 + ((sens - 8) / 40);
   ra = ra * multiplier;
-
   alpaca_log(`PUSH debug host=${host} device=${device} alpha=${alpha} lon=${lon} lat=${lat} -> RA=${ra.toFixed(6)} DEC=${dec.toFixed(6)}`);
-
   try {
+    // Use form-encoded by default (bridge expects it), but send numeric values
     await alpaca_put('slewtocoordinates', { RightAscension: ra, Declination: dec });
     alpaca_log('PUSH sent');
-  } catch(e) {
+  } catch (e) {
     alpaca_log('PUSH failed: ' + (e && e.message ? e.message : e));
     console.error(e);
   }
 }
 
 async function alpaca_pull() {
-  if(!window.alpaca_state || !window.alpaca_state.host) {
+  if (!window.alpaca_state || !window.alpaca_state.host) {
     alpaca_log('Pull aborted: host not set');
     return;
   }
-
   const raResp = await alpaca_get('rightascension');
   const decResp = await alpaca_get('declination');
-
   let ra = null, dec = null;
 
   function extract(obj) {
-    if(obj === null || obj === undefined) return {};
-    if(typeof obj === 'number') return { value: obj };
-    if(typeof obj === 'string' && !isNaN(parseFloat(obj))) return { value: parseFloat(obj) };
-    if(typeof obj === 'object') {
-      if(obj.RightAscension !== undefined || obj.Declination !== undefined) {
+    if (obj === null || obj === undefined) return {};
+    if (typeof obj === 'number') return { value: obj };
+    if (typeof obj === 'string' && !isNaN(parseFloat(obj))) return { value: parseFloat(obj) };
+    if (typeof obj === 'object') {
+      if (obj.RightAscension !== undefined || obj.Declination !== undefined) {
         return { ra: obj.RightAscension, dec: obj.Declination };
       }
-      if(obj.Value !== undefined) return extract(obj.Value);
-      if(obj.value !== undefined) return { value: obj.value };
+      if (obj.Value !== undefined) return extract(obj.Value);
+      if (obj.value !== undefined) return { value: obj.value };
     }
     return {};
   }
@@ -11160,77 +11254,79 @@ async function alpaca_pull() {
   const a = extract(raResp);
   const b = extract(decResp);
 
-  if(a.value !== undefined && b.value !== undefined) {
+  if (a.value !== undefined && b.value !== undefined) {
     ra = a.value; dec = b.value;
   } else {
-    if(a.ra !== undefined) ra = a.ra;
-    if(a.dec !== undefined) dec = a.dec;
-    if(b.ra !== undefined && ra == null) ra = b.ra;
-    if(b.dec !== undefined && dec == null) dec = b.dec;
+    if (a.ra !== undefined) ra = a.ra;
+    if (a.dec !== undefined) dec = a.dec;
+    if (b.ra !== undefined && ra == null) ra = b.ra;
+    if (b.dec !== undefined && dec == null) dec = b.dec;
   }
 
-  if(ra == null || dec == null) {
-    const host = alpaca_state.host.replace(/\/$/,'');
+  // Fallback to /position if needed
+  if (ra == null || dec == null) {
+    const host = alpaca_state.host.replace(/\/$/, '');
     const device = alpaca_state.device || 0;
-    const posUrl = `${host}/api/v1/telescope/${device}/position?ClientID=${alpaca_state.clientId}&ClientTransactionID=${++alpaca_state.clientTransactionId}`;
+    const posUrl = `${host}/api/v1/telescope/${device}/position?ClientID=${alpaca_state.clientId}&ClientTransactionID=${+alpaca_state.clientTransactionId}`;
     try {
       alpaca_log('Fallback GET -> position');
-      const r = await _fetchTimeout(posUrl, { method: 'GET' }, 6000);
-      const text = await r.text().catch(()=>null);
-      let json = null;
-      try { json = text ? JSON.parse(text) : null; } catch(e) { json = null; }
-
-      if(json && json.Value !== undefined) {
-        const v = json.Value;
-        if(typeof v === 'number') { ra = v; }
-        else if(typeof v === 'object') {
-          if(v.RightAscension !== undefined) ra = v.RightAscension;
-          if(v.Declination !== undefined) dec = v.Declination;
-        }
-      } else if(json && (json.RightAscension !== undefined || json.Declination !== undefined)) {
-        if(json.RightAscension !== undefined) ra = json.RightAscension;
-        if(json.Declination !== undefined) dec = json.Declination;
-      } else if(text) {
-        try {
-          const parsed = JSON.parse(text);
-          if(parsed && parsed.Value) {
-            if(parsed.Value.RightAscension !== undefined) ra = parsed.Value.RightAscension;
-            if(parsed.Value.Declination !== undefined) dec = parsed.Value.Declination;
+      const r = await fetchWithDiagnostics(posUrl, { method: 'GET' }, 10000);
+      if (r.ok) {
+        const text = r.text;
+        const json = r.json;
+        if (json && json.Value !== undefined) {
+          const v = json.Value;
+          if (typeof v === 'number') ra = v;
+          else if (typeof v === 'object') {
+            if (v.RightAscension !== undefined) ra = v.RightAscension;
+            if (v.Declination !== undefined) dec = v.Declination;
           }
-        } catch(e){}
+        } else if (json && (json.RightAscension !== undefined || json.Declination !== undefined)) {
+          if (json.RightAscension !== undefined) ra = json.RightAscension;
+          if (json.Declination !== undefined) dec = json.Declination;
+        } else if (text) {
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed && parsed.Value) {
+              if (parsed.Value.RightAscension !== undefined) ra = parsed.Value.RightAscension;
+              if (parsed.Value.Declination !== undefined) dec = parsed.Value.Declination;
+            }
+          } catch (e) { /* ignore parse errors */ }
+        }
+      } else {
+        console.debug('Fallback position diagnostics:', r);
       }
     } catch (err) {
-      if(err.name === 'AbortError') alpaca_log('Fallback GET timed out (possible network/CORS).');
-      else alpaca_log('Fallback GET failed: ' + err.message);
+      if (err && err.name === 'AbortError') alpaca_log('Fallback GET timed out (possible network/CORS).');
+      else alpaca_log('Fallback GET failed: ' + (err && err.message ? err.message : err));
       console.error('Alpaca fallback GET error', err);
     }
   }
 
-  if(ra == null || dec == null) {
+  if (ra == null || dec == null) {
     alpaca_log(`Pull failed: RA or DEC missing (ra=${ra} dec=${dec}).`);
     return;
   }
 
   alpaca_log(`PULL RA=${ra} DEC=${dec}`);
-
   const lon = ra * 15;
   const lat = dec;
 
-  if(typeof applyAlpacaPosition === 'function') {
+  if (typeof applyAlpacaPosition === 'function') {
     try {
       applyAlpacaPosition({ lat, lon });
       alpaca_log('Applied pulled position via applyAlpacaPosition');
-    } catch(e) {
-      alpaca_log('applyAlpacaPosition threw: ' + e.message);
+    } catch (e) {
+      alpaca_log('applyAlpacaPosition threw: ' + (e && e.message ? e.message : e));
       console.error(e);
     }
-  } else if(window.gdata) {
+  } else if (window.gdata) {
     gdata.lat = lat;
     gdata.lon = lon;
     gdata.time = Date.now();
     alpaca_log('gdata updated from pull');
-    if(typeof updateMapFromGData === 'function') {
-      try { updateMapFromGData(); } catch(e) { console.error('updateMapFromGData error', e); }
+    if (typeof updateMapFromGData === 'function') {
+      try { updateMapFromGData(); } catch (e) { console.error('updateMapFromGData error', e); }
     }
   } else {
     window._alpaca_lastPull = { ra, dec, lat, lon, timestamp: Date.now() };
@@ -11238,70 +11334,121 @@ async function alpaca_pull() {
   }
 }
 
-/* ---------- Timers and mutual exclusion ---------- */
+/* ---------- Timers and mutual exclusion (améliorés) ---------- */
 function startPush() {
   stopPull();
   stopPush();
-  const interval = parseInt(document.getElementById('alpaca-push-interval').value || 6000, 10);
+  const interval = parseInt(document.getElementById('alpaca-push-interval')?.value || 6000, 10);
   alpaca_state.pushIntervalMs = Math.max(200, interval);
   alpaca_state.pushTimer = setInterval(() => { alpaca_push(); }, alpaca_state.pushIntervalMs);
   alpaca_log(`Push started (interval ${alpaca_state.pushIntervalMs} ms)`);
+  // UI: ensure mutual exclusion
+  const pullToggle = document.getElementById('alpaca-toggle-pull');
+  const pushToggle = document.getElementById('alpaca-toggle-push');
+  if (pullToggle) { pullToggle.checked = false; pullToggle.disabled = true; }
+  if (pushToggle) { pushToggle.checked = true; pushToggle.disabled = false; }
 }
 
 function stopPush() {
-  if(alpaca_state.pushTimer) { clearInterval(alpaca_state.pushTimer); alpaca_state.pushTimer = null; }
+  if (alpaca_state.pushTimer) { clearInterval(alpaca_state.pushTimer); alpaca_state.pushTimer = null; }
   alpaca_log('Push stopped');
+  const pullToggle = document.getElementById('alpaca-toggle-pull');
+  if (pullToggle) pullToggle.disabled = false;
 }
 
 function startPull() {
   stopPush();
   stopPull();
   setUseGyroForMap(false);
+  // Poll every second by default
   alpaca_state.pullTimer = setInterval(() => { alpaca_pull(); }, 1000);
   alpaca_log('Pull started (map gyro disabled)');
+  // UI: ensure mutual exclusion
+  const pullToggle = document.getElementById('alpaca-toggle-pull');
+  const pushToggle = document.getElementById('alpaca-toggle-push');
+  if (pullToggle) { pullToggle.checked = true; pullToggle.disabled = false; }
+  if (pushToggle) { pushToggle.checked = false; pushToggle.disabled = true; }
 }
 
 function stopPull() {
-  if(alpaca_state.pullTimer) { clearInterval(alpaca_state.pullTimer); alpaca_state.pullTimer = null; }
+  if (alpaca_state.pullTimer) { clearInterval(alpaca_state.pullTimer); alpaca_state.pullTimer = null; }
   setUseGyroForMap(true);
   alpaca_log('Pull stopped (map gyro enabled)');
+  const pushToggle = document.getElementById('alpaca-toggle-push');
+  if (pushToggle) pushToggle.disabled = false;
 }
 
 /* ---------- UI toggles (exclusive) ---------- */
-document.getElementById('alpaca-toggle-push').addEventListener('change', function() {
-  const checked = this.checked;
-  if (checked) {
-    document.getElementById('alpaca-toggle-pull').checked = false;
-    alpaca_state.host = document.getElementById('alpaca-host').value;
-    alpaca_state.device = parseInt(document.getElementById('alpaca-device').value || 0, 10);
-    startPush();
-  } else {
-    stopPush();
-  }
-});
+(function wireToggles() {
+  const pushEl = document.getElementById('alpaca-toggle-push');
+  const pullEl = document.getElementById('alpaca-toggle-pull');
+  const hostEl = document.getElementById('alpaca-host');
+  const deviceEl = document.getElementById('alpaca-device');
 
-document.getElementById('alpaca-toggle-pull').addEventListener('change', function() {
-  const checked = this.checked;
-  if (checked) {
-    document.getElementById('alpaca-toggle-push').checked = false;
-    alpaca_state.host = document.getElementById('alpaca-host').value;
-    alpaca_state.device = parseInt(document.getElementById('alpaca-device').value || 0, 10);
-    startPull();
-  } else {
-    stopPull();
+  function ensureStateFromUI() {
+    if (!window.alpaca_state) window.alpaca_state = {};
+    if (hostEl && hostEl.value) window.alpaca_state.host = hostEl.value;
+    if (deviceEl) window.alpaca_state.device = parseInt(deviceEl.value || 0, 10);
   }
-});
 
-/* ---------- Clear log ---------- */
-document.getElementById('alpaca-clear-log').addEventListener('click', () => {
-  const el = document.getElementById('alpaca-log');
-  if(el) el.innerHTML = '';
-  alpaca_log('Log cleared by user');
-});
+  if (pushEl) {
+    pushEl.addEventListener('change', function () {
+      ensureStateFromUI();
+      if (this.checked) {
+        if (pullEl) { pullEl.checked = false; pullEl.disabled = true; }
+        startPush();
+      } else {
+        stopPush();
+      }
+    });
+  }
+
+  if (pullEl) {
+    pullEl.addEventListener('change', function () {
+      ensureStateFromUI();
+      if (this.checked) {
+        if (pushEl) { pushEl.checked = false; pushEl.disabled = true; }
+        startPull();
+      } else {
+        stopPull();
+      }
+    });
+  }
+
+  // Clear log button
+  const clearBtn = document.getElementById('alpaca-clear-log');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      const el = document.getElementById('alpaca-log');
+      if (el) el.innerHTML = '';
+      alpaca_log('Log cleared by user');
+    });
+  }
+
+  // On load, harmonize UI and state
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      if (!pushEl || !pullEl) return;
+      // If both checked, prefer Pull (as original logic did)
+      if (pushEl.checked && pullEl.checked) {
+        pushEl.checked = false;
+        pullEl.checked = true;
+      }
+      // Apply initial states
+      if (pullEl.checked) {
+        ensureStateFromUI();
+        startPull();
+      } else if (pushEl.checked) {
+        ensureStateFromUI();
+        startPush();
+      }
+    } catch (e) { console.error(e); }
+  });
+})();
 
 /* ---------- Diagnostic helpers (console) ---------- */
-window._alpaca_diagStart = function() {
-  if(window._alpaca_diag && window._alpaca_diag.interval) return;
+window._alpaca_diagStart = function () {
+  if (window._alpaca_diag && window._alpaca_diag.interval) return;
   window._alpaca_diag = window._alpaca_diag || {};
   window._alpaca_diag.interval = setInterval(() => {
     const gyro = window._alpaca_gyro || {};
@@ -11321,8 +11468,8 @@ window._alpaca_diagStart = function() {
   }, 1000);
   alpaca_log('Diagnostic interval started (console). Call _alpaca_diagStop() to stop.');
 };
-window._alpaca_diagStop = function() {
-  if(window._alpaca_diag && window._alpaca_diag.interval) {
+window._alpaca_diagStop = function () {
+  if (window._alpaca_diag && window._alpaca_diag.interval) {
     clearInterval(window._alpaca_diag.interval);
     window._alpaca_diag.interval = null;
     alpaca_log('Diagnostic interval stopped');
@@ -11331,102 +11478,6 @@ window._alpaca_diagStop = function() {
 
 /* ---------- Initial note ---------- */
 alpaca_log('Alpaca UI loaded. Configure Host and Device, then check Push or Pull toggles.');
-</script>
-
-<!-- ============================
-     Integration script: toggle ARIA, ensure #alpaca-root in body, z-index fixes
-     (this is the user's provided script integrated cleanly)
-     ============================ -->
-<script>
-/* Alpaca toggle behavior: bascule via classe et attributs ARIA */
-(function () {
-  const toggle = document.getElementById('alpaca-toggle');
-  const panel = document.getElementById('alpaca-panel');
-  if (!toggle || !panel) return;
-
-  // Initialise l'état accessible
-  toggle.setAttribute('aria-expanded', 'false');
-  panel.setAttribute('aria-hidden', 'true');
-
-  toggle.addEventListener('click', () => {
-    const isOpen = panel.classList.toggle('alpaca-open');
-    // Mise à jour ARIA
-    toggle.setAttribute('aria-expanded', String(isOpen));
-    panel.setAttribute('aria-hidden', String(!isOpen));
-    // Contrôle visuel si nécessaire (fallback)
-    if (isOpen) {
-      panel.style.display = 'block';
-    } else {
-      panel.style.display = 'none';
-    }
-  });
-
-  // Clear log button (already wired, but keep safe fallback)
-  const clearBtn = document.getElementById('alpaca-clear-log');
-  const log = document.getElementById('alpaca-log');
-  if (clearBtn && log) {
-    clearBtn.addEventListener('click', () => { log.innerHTML = ''; });
-  }
-})();
-
-/* Assure que #alpaca-root est enfant direct de body pour éviter les stacking contexts parents */
-(function () {
-  const alp = document.getElementById('alpaca-root');
-  if (!alp) return;
-  if (alp.parentElement !== document.body) {
-    // Conserver la position visuelle en copiant les styles en ligne si besoin
-    const computed = window.getComputedStyle(alp);
-    // Copie minimale des propriétés critiques pour préserver l'apparence
-    alp.style.position = alp.style.position || computed.position || 'fixed';
-    alp.style.top = alp.style.top || computed.top || '8px';
-    alp.style.left = alp.style.left || computed.left || '50%';
-    alp.style.transform = alp.style.transform || computed.transform || 'translateX(-50%)';
-    // Déplace dans le body
-    document.body.appendChild(alp);
-  }
-})();
-
-/* Ajuste z-index de la carte et des autres GUI pour que la carte reste au-dessus d'Alpaca
-   et que les autres panneaux GUI soient au-dessus d'Alpaca. */
-(function () {
-  const ALPACA_Z = 100; // valeur de référence pour Alpaca
-  // S'assure que #alpaca-root a bien la z-index de référence si non définie
-  const alp = document.getElementById('alpaca-root');
-  if (alp) {
-    const alpZ = window.getComputedStyle(alp).zIndex;
-    if (!alpZ || alpZ === 'auto' || Number(alpZ) !== ALPACA_Z) {
-      alp.style.zIndex = String(ALPACA_Z);
-      alp.style.position = alp.style.position || 'fixed';
-    }
-  }
-
-  // Met la carte au-dessus d'Alpaca si on la trouve
-  const map = document.getElementById('myMap') || document.querySelector('.map') || null;
-  if (map) {
-    const mapZRaw = window.getComputedStyle(map).zIndex;
-    const mapZ = Number.isFinite(Number(mapZRaw)) ? Number(mapZRaw) : NaN;
-    if (!Number.isFinite(mapZ) || mapZ <= ALPACA_Z) {
-      if (!map.style.position) map.style.position = 'relative';
-      map.style.zIndex = '1000';
-    }
-  }
-
-  // Séléction des autres panneaux GUI connus et élévation au-dessus d'Alpaca
-  const otherSelectors = [
-    '.config_div', '.ui_but', '.config-panel', '#config', '#quick_start', '#wiki_info',
-    '#manual', '.only_full', '.only_full_b'
-  ];
-  const otherGuis = document.querySelectorAll(otherSelectors.join(','));
-  otherGuis.forEach(el => {
-    if (!el) return;
-    const zRaw = window.getComputedStyle(el).zIndex;
-    const z = Number.isFinite(Number(zRaw)) ? Number(zRaw) : NaN;
-    if (!Number.isFinite(z) || z <= ALPACA_Z) {
-      if (!el.style.position) el.style.position = 'relative';
-      el.style.zIndex = '200';
-    }
-  });
-})();
 
 </script>
 
