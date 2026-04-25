@@ -15,8 +15,8 @@ android {
         applicationId = "com.astromangaming.astrohopperplus"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "A-1.0.0+W-1.0.3"
+        versionCode = 1
+        versionName = "A-1.0.1+W-1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
