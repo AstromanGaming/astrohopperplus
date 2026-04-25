@@ -253,7 +253,7 @@ input[type=submit] { width:10mm;}
 <button class="incdec_but" onclick="showConfig('none');">X</button>
 </span>
 <div class="r2l">
-<p style="text-align:center"><b><span  class="tr">Settings</span> (1.0.2 / 1.0.22)</b></p>
+<p style="text-align:center"><b><span  class="tr">Settings</span> (1.0.3 / 1.0.22)</b></p>
 <p>
 <button class="ui_but" onclick="resetAll();">&#x21bb;</button>
 <input class="dso_selector" id="small_screen" type="checkbox" /><label for="small_screen" class="tr" >Small UI</label> 
@@ -10910,10 +10910,12 @@ button.small {
     /* Responsive: si largeur <= 425px, placer le toggle à droite et adapter le panneau */
     @media (max-width: 425px) {
       #alpaca-toggle {
-        top: 83%; 
+        top: 82%;
         left: auto !important;
-        right: -118px !important;
-        transform: translateX(-200%) !important;
+        right: 8px !important;
+        transform: translateX(-16%) !important;
+        width: calc(75% - 16px);
+        max-width: none;
       }
 
       /* Le panneau suit si ouvert : aligné à droite */
