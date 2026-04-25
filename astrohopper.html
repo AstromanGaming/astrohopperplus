@@ -411,6 +411,24 @@ input[type=submit] { width:10mm;}
 <tr><td class="tr">Lat:</td><td><input type="number" min="-90" max=90" value="" id="manual_lat" oninput="updateManualLatLon()"></td></tr>
 <tr><td class="tr">Lon:</td><td><input type="number" min="-180" max=180" value="" id="manual_lon" oninput="updateManualLatLon()"></td></tr>
 </table>
+<!-- Insert this inside your Settings section where you want the controls to appear -->
+<hr>
+<th><td colspan="2" style="text-align:left" class="tr">Global Offset</td></th>
+<div class="offset-row" style="display:flex;gap:8px;align-items:center;margin:8px 0;background:#000000;padding:6px;border-radius:4px;">
+  <label for="offset_az" style="color:#ff0000;min-width:140px">Offset Az (°)</label>
+  <input id="offset_az" name="offsetAz" type="number" step="0.1" value="0.0"
+         style="background:#000000;color:#ff0000;border:1px solid #ff0000;padding:6px;width:120px" />
+</div>
+
+<div class="offset-row" style="display:flex;gap:8px;align-items:center;margin:8px 0;background:#000000;padding:6px;border-radius:4px;">
+  <label for="offset_el" style="color:#ff0000;min-width:140px">Offset El (°)</label>
+  <input id="offset_el" name="offsetEl" type="number" step="0.1" value="0.0"
+         style="background:#000000;color:#ff0000;border:1px solid #ff0000;padding:6px;width:120px" />
+</div>
+
+<div style="margin-top:6px">
+  <button id="offset_reset" style="background:#ff0000;color:#000000;border:none;padding:6px 10px;cursor:pointer;border-radius:4px">Reset offset</button>
+</div>
 </div> <!-- RTL div -->
 </div>
 
@@ -2764,10 +2782,12 @@ button.small {
     /* Responsive: si largeur <= 425px, placer le toggle à droite et adapter le panneau */
     @media (max-width: 425px) {
       #alpaca-toggle {
-        top: 83%; 
+        top: 82%;
         left: auto !important;
-        right: -118px !important;
-        transform: translateX(-200%) !important;
+        right: 8px !important;
+        transform: translateX(-16%) !important;
+        width: calc(75% - 16px);
+        max-width: none;
       }
 
       /* Le panneau suit si ouvert : aligné à droite */
@@ -3825,6 +3845,375 @@ function requestGeolocation() {
   // Final log
   console.info('[alpacaMemory] initialized (end-of-file protector)');
 })();
+
+</script>
+
+<script>
+
+/* Global Offset Module - complet et autonome
+   - Coller avant </body>
+   - Clamping des valeurs, wrapper persistant, debug, API exposée sur window
+*/
+
+(function GlobalOffsetModule(){
+  const STORAGE_KEY = 'basic_settings_v2';
+
+  // ----- Configuration par défaut -----
+  const DEFAULTS = { offsetAz: 0.0, offsetEl: 0.0 };
+  let limits = { az: { min: -180, max: 180 }, el: { min: -90, max: 90 } };
+  // signEl = -1 si tu veux que offsetEl positif "monte" (valeur par défaut choisie pour UX)
+  let cfg = { signEl: -1, debug: false, axisForEl: 'left' }; // axisForEl: 'left'|'top'|'fwd'
+
+  // ----- Etat interne -----
+  let state = Object.assign({}, DEFAULTS);
+  let wrapperInstalled = false;
+  let origGetCameraRays = null;
+
+  // ----- Utilitaires -----
+  function safeParse(s){ try { return JSON.parse(s); } catch(e){ return {}; } }
+  function clamp(v, min, max){ const n = Number(v); if (isNaN(n)) return min; return Math.max(min, Math.min(max, n)); }
+  function toFixed1(v){ return Number(v).toFixed(1); }
+  function toRad(d){ return d * Math.PI / 180; }
+
+  // ----- Storage -----
+  function loadFromStorage(){
+    try {
+      const parsed = safeParse(localStorage.getItem(STORAGE_KEY) || '{}');
+      if (typeof parsed.offsetAz !== 'undefined') state.offsetAz = clamp(parsed.offsetAz, limits.az.min, limits.az.max);
+      if (typeof parsed.offsetEl !== 'undefined') state.offsetEl = clamp(parsed.offsetEl, limits.el.min, limits.el.max);
+    } catch(e){ /* silent */ }
+  }
+  function saveToStorage(){
+    try {
+      const parsed = safeParse(localStorage.getItem(STORAGE_KEY) || '{}');
+      parsed.offsetAz = clamp(state.offsetAz, limits.az.min, limits.az.max);
+      parsed.offsetEl = clamp(state.offsetEl, limits.el.min, limits.el.max);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    } catch(e){ /* silent */ }
+  }
+
+  // ----- Public API exposée -----
+  function applyGlobalOffset({ az, el } = {}){
+    if (typeof az !== 'undefined') state.offsetAz = clamp(az, limits.az.min, limits.az.max);
+    if (typeof el !== 'undefined') state.offsetEl = clamp(el, limits.el.min, limits.el.max);
+    saveToStorage();
+    syncInputs();
+    window.__GOB_lastApplied = { offsetAz: state.offsetAz, offsetEl: state.offsetEl, t: Date.now() };
+  }
+  function getGlobalOffset(){ return { offsetAz: Number(state.offsetAz), offsetEl: Number(state.offsetEl) }; }
+  function resetGlobalOffset(){
+    state.offsetAz = DEFAULTS.offsetAz;
+    state.offsetEl = DEFAULTS.offsetEl;
+    saveToStorage();
+    syncInputs();
+  }
+  function setGlobalOffsetLimits(newLimits){
+    if (!newLimits) return;
+    if (newLimits.az && typeof newLimits.az.min === 'number') limits.az.min = newLimits.az.min;
+    if (newLimits.az && typeof newLimits.az.max === 'number') limits.az.max = newLimits.az.max;
+    if (newLimits.el && typeof newLimits.el.min === 'number') limits.el.min = newLimits.el.min;
+    if (newLimits.el && typeof newLimits.el.max === 'number') limits.el.max = newLimits.el.max;
+    // clamp current state and update UI/storage
+    state.offsetAz = clamp(state.offsetAz, limits.az.min, limits.az.max);
+    state.offsetEl = clamp(state.offsetEl, limits.el.min, limits.el.max);
+    saveToStorage();
+    syncInputs();
+  }
+  function setGlobalOffsetConfig(newCfg){
+    if (!newCfg) return;
+    if (typeof newCfg.signEl === 'number') cfg.signEl = newCfg.signEl;
+    if (typeof newCfg.debug === 'boolean') cfg.debug = newCfg.debug;
+    if (typeof newCfg.axisForEl === 'string') cfg.axisForEl = newCfg.axisForEl;
+    if (cfg.debug) console.log('GOB config', cfg);
+  }
+
+  // Expose API
+  window.applyGlobalOffset = applyGlobalOffset;
+  window.getGlobalOffset = getGlobalOffset;
+  window.resetGlobalOffset = resetGlobalOffset;
+  window.setGlobalOffsetLimits = setGlobalOffsetLimits;
+  window.setGlobalOffsetConfig = setGlobalOffsetConfig;
+  window.__GOB_limits = limits;
+
+  // ----- UI creation / binding -----
+  function ensureInputsExist(){
+    const container = document.querySelector('#basic-settings') || document.querySelector('.settings') || document.body;
+
+    // AZ
+    if (!document.getElementById('offset_az')){
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px 0;';
+      const label = document.createElement('label'); label.htmlFor='offset_az'; label.textContent='Offset Az (°)'; label.style.minWidth='140px';
+      const input = document.createElement('input'); input.id='offset_az'; input.name='offsetAz'; input.type='number'; input.step='0.1';
+      input.style.cssText='padding:6px;width:120px';
+      row.appendChild(label); row.appendChild(input); container.appendChild(row);
+    }
+
+    // EL
+    if (!document.getElementById('offset_el')){
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px 0;';
+      const label = document.createElement('label'); label.htmlFor='offset_el'; label.textContent='Offset El (°)'; label.style.minWidth='140px';
+      const input = document.createElement('input'); input.id='offset_el'; input.name='offsetEl'; input.type='number'; input.step='0.1';
+      input.style.cssText='padding:6px;width:120px';
+      row.appendChild(label); row.appendChild(input); container.appendChild(row);
+    }
+
+    // Reset
+    if (!document.getElementById('offset_reset')){
+      const btn = document.createElement('button'); btn.id='offset_reset'; btn.textContent='Reset offset';
+      btn.style.cssText='padding:6px 10px;margin-top:6px;cursor:pointer;border-radius:4px';
+      container.appendChild(btn);
+    }
+
+    // Bind handlers idempotently
+    const azEl = document.getElementById('offset_az');
+    const elEl = document.getElementById('offset_el');
+    const resetEl = document.getElementById('offset_reset');
+
+    if (azEl){
+      azEl.min = limits.az.min; azEl.max = limits.az.max;
+      azEl.value = toFixed1(state.offsetAz);
+      if (!azEl._bound){
+        azEl.addEventListener('change', ()=> {
+          const v = clamp(parseFloat(azEl.value) || 0, limits.az.min, limits.az.max);
+          state.offsetAz = v;
+          azEl.value = toFixed1(v);
+          saveToStorage();
+        });
+        azEl._bound = true;
+      }
+    }
+
+    if (elEl){
+      elEl.min = limits.el.min; elEl.max = limits.el.max;
+      elEl.value = toFixed1(state.offsetEl);
+      if (!elEl._bound){
+        elEl.addEventListener('change', ()=> {
+          const v = clamp(parseFloat(elEl.value) || 0, limits.el.min, limits.el.max);
+          state.offsetEl = v;
+          elEl.value = toFixed1(v);
+          saveToStorage();
+        });
+        elEl._bound = true;
+      }
+    }
+
+    if (resetEl && !resetEl._bound){
+      resetEl.addEventListener('click', ()=> { resetGlobalOffset(); });
+      resetEl._bound = true;
+    }
+  }
+
+  function syncInputs(){
+    const a = document.getElementById('offset_az'), e = document.getElementById('offset_el');
+    if (a) { a.min = limits.az.min; a.max = limits.az.max; a.value = toFixed1(state.offsetAz); }
+    if (e) { e.min = limits.el.min; e.max = limits.el.max; e.value = toFixed1(state.offsetEl); }
+  }
+
+  // ----- Math helpers for rotations -----
+  function mulMatVec(M, v){
+    return [
+      M[0][0]*v[0] + M[0][1]*v[1] + M[0][2]*v[2],
+      M[1][0]*v[0] + M[1][1]*v[1] + M[1][2]*v[2],
+      M[2][0]*v[0] + M[2][1]*v[1] + M[2][2]*v[2]
+    ];
+  }
+  function mul3(A,B){
+    const C = [];
+    for (let i=0;i<3;i++){ C[i]=[]; for (let j=0;j<3;j++){ let s=0; for (let k=0;k<3;k++) s+=A[i][k]*B[k][j]; C[i][j]=s; } }
+    return C;
+  }
+  function rodriguesMatrix(axis, ang){
+    const ux=axis[0], uy=axis[1], uz=axis[2];
+    const c=Math.cos(ang), s=Math.sin(ang);
+    return [
+      [ c + ux*ux*(1-c),     ux*uy*(1-c) - uz*s, ux*uz*(1-c) + uy*s ],
+      [ uy*ux*(1-c) + uz*s,  c + uy*uy*(1-c),    uy*uz*(1-c) - ux*s ],
+      [ uz*ux*(1-c) - uy*s,  uz*uy*(1-c) + ux*s, c + uz*uz*(1-c)    ]
+    ];
+  }
+
+  // ----- Normalize and write helpers (support arrays and objects) -----
+  function toVec(v){
+    if (!v) return [0,0,0];
+    if (v.x !== undefined && v.y !== undefined && v.z !== undefined) return [v.x, v.y, v.z];
+    if (Array.isArray(v)) return [v[0]||0, v[1]||0, v[2]||0];
+    return [0,0,0];
+  }
+  function writeSame(orig, vec){
+    if (orig && orig.x !== undefined){
+      orig.x = vec[0]; orig.y = vec[1]; orig.z = vec[2];
+      return orig;
+    } else {
+      return [vec[0], vec[1], vec[2]];
+    }
+  }
+
+  // ----- Wrapper factory (applique Az puis El autour d'un axe configurable) -----
+  function makeWrapper(origFn){
+    return function wrappedGetCameraRays(...args){
+      const result = origFn.apply(this, args);
+      try {
+        // support result as array [top,left,fwd] OR object { rays: [...] }
+        const containerIsArray = Array.isArray(result);
+        const rays = containerIsArray ? result : (result && Array.isArray(result.rays) ? result.rays : null);
+        if (!rays) return result;
+
+        // read offsets (storage fallback)
+        const parsed = safeParse(localStorage.getItem(STORAGE_KEY) || '{}');
+        const azDeg = (typeof parsed.offsetAz === 'number') ? parsed.offsetAz : state.offsetAz;
+        const elDeg = (typeof parsed.offsetEl === 'number') ? parsed.offsetEl : state.offsetEl;
+        const azRad = toRad(Number(azDeg) || 0);
+        const elRad = toRad((Number(elDeg) || 0) * (cfg.signEl || 1));
+
+        // Rz (azimuth global)
+        const ca = Math.cos(azRad), sa = Math.sin(azRad);
+        const Rz = [[ca,-sa,0],[sa,ca,0],[0,0,1]];
+
+        // preserve original element types to restore arrays if needed
+        const origTypes = rays.map(r => (r && r.x !== undefined) ? 'obj' : 'arr');
+
+        // apply Rz to all rays
+        for (let i=0;i<rays.length;i++){
+          const v = rays[i];
+          const vec = toVec(v);
+          const r = mulMatVec(Rz, vec);
+          rays[i] = writeSame(v, r);
+        }
+
+        // choose axis for El
+        let axisVec;
+        const top = toVec(rays[0]), left = toVec(rays[1]), fwd = toVec(rays[2]);
+        if (cfg.axisForEl === 'top') axisVec = top;
+        else if (cfg.axisForEl === 'fwd') axisVec = fwd;
+        else axisVec = left; // default left
+
+        // normalize axis
+        const L = Math.hypot(axisVec[0], axisVec[1], axisVec[2]) || 1;
+        axisVec = [axisVec[0]/L, axisVec[1]/L, axisVec[2]/L];
+
+        // if no elevation, update rotationMatrix by Rz and return
+        if (Math.abs(elRad) < 1e-12){
+          if (!containerIsArray && result.rotationMatrix && Array.isArray(result.rotationMatrix) && result.rotationMatrix.length === 9){
+            const M = [
+              [ result.rotationMatrix[0], result.rotationMatrix[1], result.rotationMatrix[2] ],
+              [ result.rotationMatrix[3], result.rotationMatrix[4], result.rotationMatrix[5] ],
+              [ result.rotationMatrix[6], result.rotationMatrix[7], result.rotationMatrix[8] ]
+            ];
+            const RM = mul3(Rz, M);
+            result.rotationMatrix = [ RM[0][0],RM[0][1],RM[0][2], RM[1][0],RM[1][1],RM[1][2], RM[2][0],RM[2][1],RM[2][2] ];
+          }
+          if (cfg.debug) console.log('GOB applied (Az only)', { azDeg, elDeg });
+          window.__GOB_lastApplied = { az: azDeg, el: elDeg, axis: cfg.axisForEl, signEl: cfg.signEl, t: Date.now() };
+          // restore arrays where arrays were
+          for (let i=0;i<rays.length;i++){
+            if (origTypes[i] === 'arr' && rays[i] && rays[i].x !== undefined){
+              const o = rays[i];
+              rays[i] = [o.x, o.y, o.z];
+            }
+          }
+          return result;
+        }
+
+        // Rodrigues rotation matrix around axisVec by elRad
+        const Raxis = rodriguesMatrix(axisVec, elRad);
+
+        // apply Raxis to all rays
+        for (let i=0;i<rays.length;i++){
+          const v = rays[i];
+          const vec = toVec(v);
+          const r = mulMatVec(Raxis, vec);
+          rays[i] = writeSame(v, r);
+        }
+
+        // update rotationMatrix if present (pre-multiply by Raxis * Rz)
+        if (!containerIsArray && result.rotationMatrix && Array.isArray(result.rotationMatrix) && result.rotationMatrix.length === 9){
+          const M = [
+            [ result.rotationMatrix[0], result.rotationMatrix[1], result.rotationMatrix[2] ],
+            [ result.rotationMatrix[3], result.rotationMatrix[4], result.rotationMatrix[5] ],
+            [ result.rotationMatrix[6], result.rotationMatrix[7], result.rotationMatrix[8] ]
+          ];
+          const R = mul3(Raxis, Rz);
+          const RM = mul3(R, M);
+          result.rotationMatrix = [ RM[0][0],RM[0][1],RM[0][2], RM[1][0],RM[1][1],RM[1][2], RM[2][0],RM[2][1],RM[2][2] ];
+        }
+
+        // restore original element types if necessary (arrays)
+        for (let i=0;i<rays.length;i++){
+          if (origTypes[i] === 'arr' && rays[i] && rays[i].x !== undefined){
+            const o = rays[i];
+            rays[i] = [o.x, o.y, o.z];
+          }
+        }
+
+        window.__GOB_lastApplied = { az: azDeg, el: elDeg, axis: cfg.axisForEl, signEl: cfg.signEl, t: Date.now() };
+        if (cfg.debug) console.log('GOB applied', window.__GOB_lastApplied, 'rays:', rays);
+      } catch(e){
+        if (cfg.debug) console.error('GOB wrapper error', e);
+      }
+      return result;
+    };
+  }
+
+  // ----- Install wrapper idempotently and persistently -----
+  function installWrapper(){
+    try {
+      if (wrapperInstalled) return true;
+      if (typeof window.getCameraRays !== 'function') return false;
+      if (!origGetCameraRays) origGetCameraRays = window.getCameraRays;
+      // avoid double-wrap
+      if (origGetCameraRays && origGetCameraRays.__GOB_wrapped) { wrapperInstalled = true; return true; }
+      const wrapped = makeWrapper(origGetCameraRays);
+      wrapped.__GOB_wrapped = true;
+      wrapped.__orig = origGetCameraRays;
+      window.getCameraRays = wrapped;
+      wrapperInstalled = true;
+      window.__GOB_wrapper_installed = true;
+      if (cfg.debug) console.log('GOB wrapper installed');
+      return true;
+    } catch(e){ return false; }
+  }
+
+  // polling to wait for getCameraRays if defined later
+  function startPolling(){
+    if (wrapperInstalled) return;
+    let attempts = 0;
+    const h = setInterval(() => {
+      attempts++;
+      const ok = installWrapper();
+      if (ok || attempts > 400) { clearInterval(h); }
+    }, 250);
+  }
+
+  // reapply if overwritten
+  function watchAndReapply(){
+    let last = window.getCameraRays;
+    setInterval(() => {
+      if (window.getCameraRays !== last){
+        last = window.getCameraRays;
+        wrapperInstalled = false;
+        // small delay then reinstall
+        setTimeout(()=>{ installWrapper(); }, 50);
+      }
+    }, 300);
+  }
+
+  // ----- Init -----
+  loadFromStorage();
+  ensureInputsExist();
+  syncInputs();
+  startPolling();
+  watchAndReapply();
+
+  // expose some debug helpers
+  window.__GOB_debug = cfg;
+  window.__GOB_applyConfig = setGlobalOffsetConfig;
+  window.__GOB_installNow = installWrapper;
+  window.__GOB_isInstalled = () => wrapperInstalled;
+  if (cfg.debug) console.log('GlobalOffsetModule initialized');
+
+})(); 
 
 </script>
 
