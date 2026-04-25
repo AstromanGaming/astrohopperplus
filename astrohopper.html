@@ -2764,10 +2764,12 @@ button.small {
     /* Responsive: si largeur <= 425px, placer le toggle à droite et adapter le panneau */
     @media (max-width: 425px) {
       #alpaca-toggle {
-        top: 83%; 
+        top: 82%;
         left: auto !important;
-        right: -118px !important;
-        transform: translateX(-200%) !important;
+        right: 8px !important;
+        transform: translateX(-16%) !important;
+        width: calc(75% - 16px);
+        max-width: none;
       }
 
       /* Le panneau suit si ouvert : aligné à droite */
