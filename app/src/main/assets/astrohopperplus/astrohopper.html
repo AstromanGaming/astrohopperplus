@@ -1,26 +1,64 @@
-<!DOCTYPE>
-<html>
+<!DOCTYPE html>
+<html lang="fr">
 <head>
-<title>AstroHopperPlus - Web Application for Sky Navigation</title>
-<link rel="manifest" href="manifest.json">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-</head>
-<style>
-body, td { margin:3mm 0 0 0; font-size: 5mm ; color:red ; font-family: sans; background-color:black }
-a:link {color: red;}
-a:visited { color: red; }
-a:active { color:red; }
-a:hover { color:red; }
-button { border-radius:2mm; height:10mm; font-size:5mm ; text-align:center; vertical-align: middle; background-color:black; color:red; border: 2px solid red }
-.comp_but, .incdec_but { width: 10mm ; height:10mm; font-size:5mm ; padding: 0 }
-.comp_but { float:right }
-.only_tiny { display : none }
-.only_tiny_tr { display : none }
-.only_full { display : inline }
-.only_tiny_b { display : none }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AstroHopperPlus - Web Application for Sky Navigation</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    /* couche racine : couvre toujours le viewport */
+    :root, html, body {
+      height: 100%;
+      min-height: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #111; /* <-- première couche (derrière tout) */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ton GUI (deuxième couche) */
+    body, td {
+      margin: 3mm 0 0 0;
+      font-size: 5mm;
+      color: red;
+      font-family: sans-serif;
+      background-color: black; /* couleur du panneau lui-même */
+      box-sizing: border-box;
+    }
+
+    a:link, a:visited, a:active, a:hover {
+      color: red;
+    }
+
+    button {
+      border-radius: 2mm;
+      height: 10mm;
+      font-size: 5mm;
+      text-align: center;
+      vertical-align: middle;
+      background-color: black;
+      color: red;
+      border: 2px solid red;
+      box-sizing: border-box;
+    }
+
+    .comp_but, .incdec_but {
+      width: 10mm;
+      height: 10mm;
+      font-size: 5mm;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    .comp_but { float: right; }
+
+    .only_tiny { display: none; }
+    .only_tiny_tr { display: none; }
+    .only_full { display: inline; }
+    .only_tiny_b { display: none; }
 
 #search_field_main_ok {
     position:absolute;
@@ -215,7 +253,7 @@ input[type=submit] { width:10mm;}
 <button class="incdec_but" onclick="showConfig('none');">X</button>
 </span>
 <div class="r2l">
-<p style="text-align:center"><b><span  class="tr">Settings</span> (1.0.1 / 1.0.22)</b></p>
+<p style="text-align:center"><b><span  class="tr">Settings</span> (1.0.2 / 1.0.22)</b></p>
 <p>
 <button class="ui_but" onclick="resetAll();">&#x21bb;</button>
 <input class="dso_selector" id="small_screen" type="checkbox" /><label for="small_screen" class="tr" >Small UI</label> 
@@ -8930,13 +8968,84 @@ function setUseGyro(val,message=null,message_tiny=null)
 
 function resetAll()
 {
-	global_expecting_select = selectTarget;
-	findTargetByName();
-	global_target_index = -1;
+  try {
+    // --- comportements existants (conserver) ---
+    global_expecting_select = selectTarget;
+    findTargetByName();
+    global_target_index = -1;
     showHideInfoIcon();
-	document.getElementById('find_status').innerHTML = '';
-	global_align_index = -1;
-	setUseGyro(false);
+    document.getElementById('find_status').innerHTML = '';
+    global_align_index = -1;
+    setUseGyro(false);
+
+    // --- defaults à appliquer ---
+    const KEY = 'alpaca_basic_settings_v2';
+    const DEFAULTS = {
+      host: 'http://127.0.0.1:11111',
+      device: 0,
+      pushInterval: 6000,
+      gyroSens: 8
+    };
+
+    // Appliquer aux inputs et à l'état global
+    function applyDefaultsToStateAndUI(d) {
+      window.alpaca_state = window.alpaca_state || {};
+      window.alpaca_state.host = d.host;
+      window.alpaca_state.device = d.device;
+      window.alpaca_state.pushIntervalMs = d.pushInterval;
+      window.alpaca_state.gyroSens = d.gyroSens;
+
+      const setAndEmit = (id, val) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = val;
+        try { el.dispatchEvent(new Event('input', { bubbles: true })); }
+        catch(e) { /* ignore */ }
+      };
+
+      setAndEmit('alpaca-host', d.host);
+      setAndEmit('alpaca-device', String(d.device));
+      setAndEmit('alpaca-push-interval', String(d.pushInterval));
+      setAndEmit('alpaca-gyro-sens', String(d.gyroSens));
+    }
+
+    // Supprimer la clé et persister les defaults
+    try { localStorage.removeItem(KEY); } catch(e) { console.warn('[resetAll] clear storage failed', e); }
+
+    if (window.alpacaBasicMemory && typeof window.alpacaBasicMemory.save === 'function') {
+      // applique d'abord, puis sauvegarde via l'API existante
+      applyDefaultsToStateAndUI(DEFAULTS);
+      try { window.alpacaBasicMemory.save(); }
+      catch(e){ console.warn('[resetAll] alpacaBasicMemory.save failed', e); }
+    } else {
+      // fallback : écrire directement dans localStorage puis appliquer
+      try { localStorage.setItem(KEY, JSON.stringify({
+        host: DEFAULTS.host,
+        device: DEFAULTS.device,
+        pushInterval: DEFAULTS.pushInterval,
+        gyroSens: DEFAULTS.gyroSens
+      })); } catch(e){ console.warn('[resetAll] fallback save failed', e); }
+      applyDefaultsToStateAndUI(DEFAULTS);
+    }
+
+    // Feedback visuel sur le bouton (si présent)
+    const btn = document.querySelector('.ui_but[onclick*="resetAll"]') || document.getElementById('astro-reset-defaults');
+    if (btn) {
+      const prev = btn.textContent;
+      btn.textContent = 'Réinitialisé';
+      setTimeout(()=> { try { btn.textContent = prev; } catch(e){} }, 1200);
+    }
+
+    console.info('[resetAll] AstroHopper paramètres remis aux valeurs par défaut');
+
+    // Hook optionnel pour rafraîchir l'UI si ton app en a un
+    if (typeof window.onAstroSettingsChanged === 'function') {
+      try { window.onAstroSettingsChanged(); } catch(e){ console.warn('[resetAll] onAstroSettingsChanged failed', e); }
+    }
+  } catch(err) {
+    console.error('[resetAll] erreur inattendue', err);
+    alert('Erreur lors de la réinitialisation. Voir la console pour détails.');
+  }
 }
 
 function align()
@@ -9457,10 +9566,10 @@ function plotBearing(xyz)
 	context.fillStyle = global_style.bearing;
 	context.textBaseline = 'middle';
 	context.textAlign = 'end';
-	context.fillText(updn,canvas.width - 5,canvas.height / 2)
+	context.fillText(updn,canvas.width - 5,canvas.height / 2.25)
 	context.textAlign = 'center';
 	context.textBaseline = 'bottom';
-	context.fillText(left,canvas.width/2,canvas.height - 5)
+	context.fillText(left,canvas.width/2,canvas.height - 50)
 }			
 
 
@@ -9621,9 +9730,9 @@ function plotAltAz(fwd)
 	context.textBaseline = 'bottom';
 	context.textAlign = 'end';
 	context.fillStyle = global_style.altaz;
-	context.fillText(alt,canvas.width - 5,canvas.height - 5)
+	context.fillText(alt,canvas.width - 5,canvas.height - 50)
 	context.textAlign = 'start';
-	context.fillText(az,5,canvas.height - 5)
+	context.fillText(az,5,canvas.height - 50)
 }
 
 function selectTarget(index)
@@ -10661,7 +10770,7 @@ window.addEventListener("load", () => {
     /* Panneau centré */
     #alpaca-panel {
       position: fixed;
-      top: calc(50% + 150px);
+      top: calc(50% + 150px + 20px);
       left: 50%;
       transform: translateX(-50%);
       display: none;
@@ -10801,10 +10910,10 @@ button.small {
     /* Responsive: si largeur <= 425px, placer le toggle à droite et adapter le panneau */
     @media (max-width: 425px) {
       #alpaca-toggle {
-        top: 8%; 
+        top: 80%; 
         left: auto !important;
-        right: 8px !important;
-        transform: translateX(-65%) !important;
+        right: -130px !important;
+        transform: translateX(-200%) !important;
       }
 
       /* Le panneau suit si ouvert : aligné à droite */
@@ -11750,6 +11859,117 @@ function requestGeolocation() {
     }
   };
 
+})();
+
+/* --- Alpaca: sync & protect host/device/pushInterval/gyroSens (PLACE AT END OF JS) --- */
+(function(){
+  const KEY = 'alpaca_basic_settings_v2';
+
+  function loadStored(){
+    try { return JSON.parse(localStorage.getItem(KEY) || 'null'); }
+    catch(e){ return null; }
+  }
+  function saveStored(s){
+    try { localStorage.setItem(KEY, JSON.stringify(s)); console.info('[alpacaMemory] saved', s); }
+    catch(e){ console.warn('[alpacaMemory] save failed', e); }
+  }
+
+  function snapshotFromUIorState(){
+    const host = document.getElementById('alpaca-host')?.value ?? window.alpaca_state?.host ?? '';
+    const device = Number(document.getElementById('alpaca-device')?.value ?? window.alpaca_state?.device ?? 0);
+    const pushInterval = Number(document.getElementById('alpaca-push-interval')?.value ?? window.alpaca_state?.pushIntervalMs ?? 6000);
+    const gyroSens = Number(document.getElementById('alpaca-gyro-sens')?.value ?? window.alpaca_state?.gyroSens ?? 8);
+    const s = { host, device, pushInterval, gyroSens };
+    saveStored(s);
+    return s;
+  }
+
+  function applyStoredToStateAndUI(stored, force){
+    if(!stored) return;
+    window.alpaca_state = window.alpaca_state || {};
+    if(force || !window.alpaca_state.host || window.alpaca_state.host.includes('127.0.0.1')) window.alpaca_state.host = stored.host || window.alpaca_state.host;
+    if(typeof stored.device !== 'undefined') window.alpaca_state.device = stored.device;
+    if(typeof stored.pushInterval !== 'undefined') window.alpaca_state.pushIntervalMs = stored.pushInterval;
+    if(typeof stored.gyroSens !== 'undefined') window.alpaca_state.gyroSens = stored.gyroSens;
+
+    const h = document.getElementById('alpaca-host');
+    if(h && (force || !h.value || h.value.includes('127.0.0.1'))) h.value = window.alpaca_state.host || stored.host || h.value;
+    const d = document.getElementById('alpaca-device'); if(d && (force || !d.value)) d.value = String(window.alpaca_state.device ?? stored.device ?? d.value);
+    const p = document.getElementById('alpaca-push-interval'); if(p && (force || !p.value)) p.value = String(window.alpaca_state.pushIntervalMs ?? stored.pushInterval ?? p.value);
+    const g = document.getElementById('alpaca-gyro-sens'); if(g && (force || !g.value)) g.value = String(window.alpaca_state.gyroSens ?? stored.gyroSens ?? g.value);
+
+    console.info('[alpacaMemory] applied stored', {host: window.alpaca_state.host});
+  }
+
+  // Apply immediately (force)
+  const stored = loadStored();
+  if(stored) applyStoredToStateAndUI(stored, true);
+
+  // Attach listeners to inputs to persist immediately on change/input
+  ['alpaca-host','alpaca-device','alpaca-push-interval','alpaca-gyro-sens'].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change', snapshotFromUIorState);
+    el.addEventListener('input', () => {
+      if(el._alpaca_timer) clearTimeout(el._alpaca_timer);
+      el._alpaca_timer = setTimeout(() => { snapshotFromUIorState(); el._alpaca_timer = null; }, 200);
+    });
+  });
+
+  // Protect input against external resets (MutationObserver + polling fallback)
+  const hostEl = document.getElementById('alpaca-host');
+  if(hostEl){
+    const storedHost = stored?.host || window.alpaca_state?.host || '';
+    const mo = new MutationObserver(() => {
+      const cur = hostEl.value;
+      if(storedHost && (cur === '' || cur.includes('127.0.0.1'))) {
+        console.info('[alpacaMemory] input overwritten -> restoring', storedHost);
+        hostEl.value = storedHost;
+        snapshotFromUIorState();
+      }
+    });
+    mo.observe(hostEl, { attributes: true, attributeFilter: ['value'] });
+    setInterval(() => {
+      const cur = hostEl.value;
+      const desired = window.alpaca_state?.host || loadStored()?.host;
+      if(desired && (cur === '' || cur.includes('127.0.0.1'))) {
+        hostEl.value = desired;
+      }
+    }, 1000);
+  }
+
+  // Install proxy on window.alpaca_state to persist when host is written programmatically
+  try {
+    const base = window.alpaca_state || {};
+    const proxy = new Proxy(base, {
+      set(target, prop, value) {
+        target[prop] = value;
+        if(prop === 'host') {
+          const s = loadStored() || {};
+          s.host = value;
+          saveStored(s);
+          const el = document.getElementById('alpaca-host');
+          if(el) el.value = value;
+          console.info('[alpacaMemory] persisted host via proxy:', value);
+        }
+        return true;
+      }
+    });
+    window.alpaca_state = proxy;
+  } catch(e) {
+    console.warn('[alpacaMemory] proxy install failed', e);
+  }
+
+  // Expose debug API
+  window.alpacaBasicMemory = {
+    save: snapshotFromUIorState,
+    load: loadStored,
+    clear: function(){ localStorage.removeItem(KEY); console.info('[alpacaMemory] cleared'); },
+    debug: function(){ console.log('localStorage['+KEY+'] =', localStorage.getItem(KEY)); }
+  };
+
+  // Final log
+  console.info('[alpacaMemory] initialized (end-of-file protector)');
 })();
 
 </script>
