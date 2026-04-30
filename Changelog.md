@@ -4,7 +4,7 @@
 
 
 
-* {DEV} - Refresh deploy.py and add fusion.py for separate AstroHopperPlus and astrohopper codes to two .html for future AstroHopper update.
+* {DEV} - Refresh deploy.py and add fusion.py for separate AstroHopperPlus and astrohopper codes to two .html for future AstroHopperPlus update.
 
 
 
@@ -13,7 +13,9 @@
 * {PRE-R} - Add #4 Issue (Degree offset ajustement)
 
 
+
 ///
+
 
 
 2026-04-25: 1.0.3 / 1.0.22
