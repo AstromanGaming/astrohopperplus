@@ -1,26 +1,65 @@
-<!DOCTYPE>
-<html>
+<!DOCTYPE html>
+<html lang="fr">
 <head>
-<title>AstroHopper - Web Application for Sky Navigation</title>
-<link rel="manifest" href="manifest.json">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-</head>
-<style>
-body, td { margin:3mm 0 0 0; font-size: 5mm ; color:red ; font-family: sans; background-color:black }
-a:link {color: red;}
-a:visited { color: red; }
-a:active { color:red; }
-a:hover { color:red; }
-button { border-radius:2mm; height:10mm; font-size:5mm ; text-align:center; vertical-align: middle; background-color:black; color:red; border: 2px solid red }
-.comp_but, .incdec_but { width: 10mm ; height:10mm; font-size:5mm ; padding: 0 }
-.comp_but { float:right }
-.only_tiny { display : none }
-.only_tiny_tr { display : none }
-.only_full { display : inline }
-.only_tiny_b { display : none }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>AstroHopperPlus - Web Application for Sky Navigation</title>
+  <link rel="manifest" href="manifest.json" />
+  </head>
+  <style>
+    /* couche racine : couvre toujours le viewport */
+    :root, html, body {
+      height: 100%;
+      min-height: 100%;
+      margin: 0;
+      padding: 0;
+      background-color: #111; /* <-- première couche (derrière tout) */
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ton GUI (deuxième couche) */
+    body, td {
+      margin: 3mm 0 0 0;
+      font-size: 5mm;
+      color: red;
+      font-family: sans-serif;
+      background-color: black; /* couleur du panneau lui-même */
+      box-sizing: border-box;
+    }
+
+    a:link, a:visited, a:active, a:hover {
+      color: red;
+    }
+
+    button {
+      border-radius: 2mm;
+      height: 10mm;
+      font-size: 5mm;
+      text-align: center;
+      vertical-align: middle;
+      background-color: black;
+      color: red;
+      border: 2px solid red;
+      box-sizing: border-box;
+    }
+
+    .comp_but, .incdec_but {
+      width: 10mm;
+      height: 10mm;
+      font-size: 5mm;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    .comp_but { float: right; }
+
+    .only_tiny { display: none; }
+    .only_tiny_tr { display: none; }
+    .only_full { display: inline; }
+    .only_tiny_b { display: none; }
 
 #search_field_main_ok {
     position:absolute;
@@ -373,6 +412,24 @@ input[type=submit] { width:10mm;}
 <tr><td class="tr">Lat:</td><td><input type="number" min="-90" max=90" value="" id="manual_lat" oninput="updateManualLatLon()"></td></tr>
 <tr><td class="tr">Lon:</td><td><input type="number" min="-180" max=180" value="" id="manual_lon" oninput="updateManualLatLon()"></td></tr>
 </table>
+<!-- Insert this inside your Settings section where you want the controls to appear -->
+<hr>
+<th><td colspan="2" style="text-align:left" class="tr">Global Offset</td></th>
+<div class="offset-row" style="display:flex;gap:8px;align-items:center;margin:8px 0;background:#000000;padding:6px;border-radius:4px;">
+  <label for="offset_az" style="color:#ff0000;min-width:140px">Offset Az (°)</label>
+  <input id="offset_az" name="offsetAz" type="number" step="0.1" value="0.0"
+         style="background:#000000;color:#ff0000;border:1px solid #ff0000;padding:6px;width:120px" />
+</div>
+
+<div class="offset-row" style="display:flex;gap:8px;align-items:center;margin:8px 0;background:#000000;padding:6px;border-radius:4px;">
+  <label for="offset_el" style="color:#ff0000;min-width:140px">Offset El (°)</label>
+  <input id="offset_el" name="offsetEl" type="number" step="0.1" value="0.0"
+         style="background:#000000;color:#ff0000;border:1px solid #ff0000;padding:6px;width:120px" />
+</div>
+
+<div style="margin-top:6px">
+  <button id="offset_reset" style="background:#ff0000;color:#000000;border:none;padding:6px 10px;cursor:pointer;border-radius:4px">Reset offset</button>
+</div>
 </div> <!-- RTL div -->
 </div>
 
@@ -471,11 +528,65 @@ var global_status = "";
 
 var global_watchlist = null;
 
-function showManual(v)
-{
-	document.getElementById('manual').style.display = v ? 'inline' : 'none';
-}
+function showManual(v) {
+  const manual = document.getElementById('manual');
+  const toggle = document.getElementById('alpaca-toggle');
+  if (!manual) return;
 
+  if (v) {
+    // Si le bouton a le focus, le retirer pour éviter aria-hidden sur un élément focalisé
+    if (toggle && document.activeElement === toggle) toggle.blur();
+
+    // Affiche le manuel et lui donne le focus
+    manual.style.display = 'inline';
+    manual.setAttribute('tabindex', '-1');
+    manual.focus();
+
+    // Assure que le manuel est au-dessus
+    manual.style.zIndex = '9999';
+
+    if (toggle) {
+      // Sauvegarde l'état visuel et d'accessibilité
+      toggle.dataset._prevDisplay = toggle.style.display || '';
+      toggle.dataset._prevTabindex = String(toggle.tabIndex);
+      toggle.dataset._prevZ = toggle.style.zIndex || '';
+
+      // Masque complètement le bouton (retire du flux visuel et du focus)
+      toggle.style.display = 'none';
+      toggle.tabIndex = -1;
+      toggle.setAttribute('aria-hidden', 'true');
+      toggle.style.pointerEvents = 'none';
+
+      // Si inert est supporté, l'utiliser (sécurisé dans try/catch)
+      try { toggle.inert = true; } catch (e) { /* fallback géré ci‑dessous */ }
+    }
+  } else {
+    // Masque le manuel
+    manual.style.display = 'none';
+    manual.removeAttribute('tabindex');
+    manual.style.zIndex = '';
+
+    if (toggle) {
+      // Restaure l'affichage et l'accessibilité
+      toggle.style.display = toggle.dataset._prevDisplay || '';
+      const prevTab = toggle.dataset._prevTabindex;
+      toggle.tabIndex = prevTab !== undefined ? parseInt(prevTab, 10) : 0;
+      toggle.style.zIndex = toggle.dataset._prevZ || '';
+      toggle.removeAttribute('aria-hidden');
+      toggle.style.pointerEvents = '';
+
+      try { toggle.inert = false; } catch (e) { /* ignore */ }
+
+      // Nettoyage des données temporaires
+      delete toggle.dataset._prevDisplay;
+      delete toggle.dataset._prevTabindex;
+      delete toggle.dataset._prevZ;
+
+      // Rendre le focus au bouton
+      toggle.focus();
+    }
+  }
+}
 
 function qsHide()
 {
@@ -730,13 +841,84 @@ function setUseGyro(val,message=null,message_tiny=null)
 
 function resetAll()
 {
-	global_expecting_select = selectTarget;
-	findTargetByName();
-	global_target_index = -1;
+  try {
+    // --- comportements existants (conserver) ---
+    global_expecting_select = selectTarget;
+    findTargetByName();
+    global_target_index = -1;
     showHideInfoIcon();
-	document.getElementById('find_status').innerHTML = '';
-	global_align_index = -1;
-	setUseGyro(false);
+    document.getElementById('find_status').innerHTML = '';
+    global_align_index = -1;
+    setUseGyro(false);
+
+    // --- defaults à appliquer ---
+    const KEY = 'alpaca_basic_settings_v2';
+    const DEFAULTS = {
+      host: 'http://127.0.0.1:11111',
+      device: 0,
+      pushInterval: 6000,
+      gyroSens: 8
+    };
+
+    // Appliquer aux inputs et à l'état global
+    function applyDefaultsToStateAndUI(d) {
+      window.alpaca_state = window.alpaca_state || {};
+      window.alpaca_state.host = d.host;
+      window.alpaca_state.device = d.device;
+      window.alpaca_state.pushIntervalMs = d.pushInterval;
+      window.alpaca_state.gyroSens = d.gyroSens;
+
+      const setAndEmit = (id, val) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = val;
+        try { el.dispatchEvent(new Event('input', { bubbles: true })); }
+        catch(e) { /* ignore */ }
+      };
+
+      setAndEmit('alpaca-host', d.host);
+      setAndEmit('alpaca-device', String(d.device));
+      setAndEmit('alpaca-push-interval', String(d.pushInterval));
+      setAndEmit('alpaca-gyro-sens', String(d.gyroSens));
+    }
+
+    // Supprimer la clé et persister les defaults
+    try { localStorage.removeItem(KEY); } catch(e) { console.warn('[resetAll] clear storage failed', e); }
+
+    if (window.alpacaBasicMemory && typeof window.alpacaBasicMemory.save === 'function') {
+      // applique d'abord, puis sauvegarde via l'API existante
+      applyDefaultsToStateAndUI(DEFAULTS);
+      try { window.alpacaBasicMemory.save(); }
+      catch(e){ console.warn('[resetAll] alpacaBasicMemory.save failed', e); }
+    } else {
+      // fallback : écrire directement dans localStorage puis appliquer
+      try { localStorage.setItem(KEY, JSON.stringify({
+        host: DEFAULTS.host,
+        device: DEFAULTS.device,
+        pushInterval: DEFAULTS.pushInterval,
+        gyroSens: DEFAULTS.gyroSens
+      })); } catch(e){ console.warn('[resetAll] fallback save failed', e); }
+      applyDefaultsToStateAndUI(DEFAULTS);
+    }
+
+    // Feedback visuel sur le bouton (si présent)
+    const btn = document.querySelector('.ui_but[onclick*="resetAll"]') || document.getElementById('astro-reset-defaults');
+    if (btn) {
+      const prev = btn.textContent;
+      btn.textContent = 'Réinitialisé';
+      setTimeout(()=> { try { btn.textContent = prev; } catch(e){} }, 1200);
+    }
+
+    console.info('[resetAll] AstroHopper paramètres remis aux valeurs par défaut');
+
+    // Hook optionnel pour rafraîchir l'UI si ton app en a un
+    if (typeof window.onAstroSettingsChanged === 'function') {
+      try { window.onAstroSettingsChanged(); } catch(e){ console.warn('[resetAll] onAstroSettingsChanged failed', e); }
+    }
+  } catch(err) {
+    console.error('[resetAll] erreur inattendue', err);
+    alert('Erreur lors de la réinitialisation. Voir la console pour détails.');
+  }
 }
 
 function align()
@@ -1257,10 +1439,10 @@ function plotBearing(xyz)
 	context.fillStyle = global_style.bearing;
 	context.textBaseline = 'middle';
 	context.textAlign = 'end';
-	context.fillText(updn,canvas.width - 5,canvas.height / 2)
+	context.fillText(updn,canvas.width - 5,canvas.height / 2.25)
 	context.textAlign = 'center';
 	context.textBaseline = 'bottom';
-	context.fillText(left,canvas.width/2,canvas.height - 5)
+	context.fillText(left,canvas.width/2,canvas.height - 50)
 }			
 
 
@@ -1421,9 +1603,9 @@ function plotAltAz(fwd)
 	context.textBaseline = 'bottom';
 	context.textAlign = 'end';
 	context.fillStyle = global_style.altaz;
-	context.fillText(alt,canvas.width - 5,canvas.height - 5)
+	context.fillText(alt,canvas.width - 5,canvas.height - 50)
 	context.textAlign = 'start';
-	context.fillText(az,5,canvas.height - 5)
+	context.fillText(az,5,canvas.height - 50)
 }
 
 function selectTarget(index)
@@ -1665,6 +1847,7 @@ function manualMove(e)
 	global_prev_xy = xy;
     global_toch_start_time = null;
 }
+
 function manualUp(e)
 {
 	if(!global_prev_xy)
@@ -1681,6 +1864,7 @@ function manualUp(e)
 	global_prev_xy = null;
     global_toch_start_time = null;
 }
+
 function moveSky(prev,cur)
 {
 	if(global_use_compass)
@@ -1706,8 +1890,6 @@ function dontPropMouseDown(lst,events_list)
 	}
 }
 
-
-
 function setupiOSOrientationEvents()
 {
 	if (window.DeviceOrientationEvent) {
@@ -1724,7 +1906,6 @@ function setupiOSOrientationEvents()
 	}
 	setUseGyro(false);
 }
-
 
 function setupOrientationEvents()
 {
@@ -2428,6 +2609,1614 @@ window.addEventListener("load", () => {
 
 </script>
 
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Alpaca Client</title>
+  <style>
+    :root{
+      --accent:#ff0000;
+      --bg:#000000;
+      --text:#ff0000;
+      --muted:#ff0000;
+    }
+    html,body{height:100%;margin:0;background:transparent;font-family:system-ui,Segoe UI,Roboto,Arial}
+
+    /* Conteneur racine (panneau) centré par défaut */
+    #alpaca-root {
+      position: fixed;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      pointer-events:auto;
+      width:96vw;
+      max-width:540px;
+      box-sizing:border-box;
+    }
+
+    /* Panneau centré */
+    #alpaca-panel {
+      position: fixed;
+      top: calc(50% + 150px + 20px);
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      margin: 0;
+      background: var(--bg);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      padding: 8px;
+      border-radius: 8px;
+      pointer-events: auto;
+      box-sizing: border-box;
+      width: min(680px, 100%);
+      max-width: 680px;
+      z-index: 105;
+      right: auto;
+    }
+
+/* layout de base */
+.row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  align-items: center;
+  flex-wrap: wrap;            /* permet au contenu de passer à la ligne si nécessaire */
+  box-sizing: border-box;
+}
+
+/* chaque colonne peut rétrécir et ne forcera pas le conteneur à grandir */
+.row .col {
+  flex: 1 1 0;                /* flex-grow:1; flex-shrink:1; base:0 */
+  min-width: 0;               /* CRUCIAL : permet aux enfants de se réduire correctement */
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* labels et champs */
+label {
+  color: var(--text);
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  white-space: nowrap;        /* évite que le label casse au milieu si tu veux garder sur une ligne */
+}
+
+/* inputs prennent tout l'espace disponible dans leur colonne */
+input[type="text"],
+input[type="number"],
+input[type="range"] {
+  background: #000;
+  color: var(--text);
+  border: 1px solid var(--accent);
+  padding: 6px;
+  border-radius: 6px;
+  box-sizing: border-box;
+  width: 100%;                /* IMPORTANT : occupe l'espace de la colonne */
+  min-width: 0;               /* évite overflow dans certains navigateurs */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* checkbox et boutons */
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+button.small {
+  background: #000;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+/* log et indicateurs */
+#alpaca-log {
+  max-height: 220px;
+  overflow: auto;
+  font-size: 12px;
+  border-top: 1px dashed var(--accent);
+  padding-top: 8px;
+  margin-top: 8px;
+  color: var(--muted);
+  box-sizing: border-box;
+}
+
+#alpaca-gyro-indicator {
+  color: var(--text);
+  font-size: 12px;
+  margin-top: 6px;
+  text-align: center;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* responsive : limite la largeur du panneau sur grands écrans */
+@media (min-width: 700px) {
+  #alpaca-panel { width: 520px; box-sizing: border-box; }
+}
+
+/* petites améliorations pour très petits écrans */
+@media (max-width: 480px) {
+  label { font-size: 12px; }
+  input[type="text"], input[type="number"] { padding: 8px 6px; }
+}
+
+    /* Positionnement du toggle : fixé indépendamment pour plus de robustesse */
+    #alpaca-toggle {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: auto;
+      background: #000;
+      color: var(--accent);
+      border: 2px solid var(--accent);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 110;
+      white-space: nowrap;
+      box-sizing: border-box;
+    }
+
+    /* Responsive: si largeur <= 425px, placer le toggle à droite et adapter le panneau */
+    @media (max-width: 425px) {
+      #alpaca-toggle {
+        top: 82%;
+        left: auto !important;
+        right: 8px !important;
+        transform: translateX(-16%) !important;
+        width: calc(75% - 16px);
+        max-width: none;
+      }
+
+      /* Le panneau suit si ouvert : aligné à droite */
+      #alpaca-panel {
+        left: auto !important;
+        right: 8px !important;
+        transform: translateX(0) !important;
+        width: calc(100% - 16px);
+        max-width: none;
+      }
+
+      /* Ajuste le root pour éviter chevauchement si nécessaire */
+      #alpaca-root {
+        left: auto !important;
+        right: 8px !important;
+        transform: translateX(0) !important;
+        align-items: flex-end;
+        width: calc(100% - 16px);
+        max-width: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Le toggle est en-dehors du panneau pour garantir son positionnement -->
+  <button id="alpaca-toggle" aria-controls="alpaca-panel" aria-expanded="false">Alpaca</button>
+
+  <div id="alpaca-root" aria-live="polite">
+    <div id="alpaca-panel" role="region" aria-label="Alpaca settings panel">
+      <div class="row">
+        <div class="col">
+          <label><input type="checkbox" id="alpaca-toggle-push"> <span>Push</span></label>
+        </div>
+        <div class="col">
+          <label><input type="checkbox" id="alpaca-toggle-pull"> <span>Pull</span></label>
+        </div>
+      </div>
+
+      <div class="row">
+        <label>Device #<input id="alpaca-device" type="number" value="0" min="0" style="width:90px"></label>
+        <label style="flex:2">Host<input id="alpaca-host" type="text" value="http://127.0.0.1:11111"></label>
+      </div>
+
+      <div class="row">
+        <label style="flex:1">Gyro sensitivity
+          <input id="alpaca-gyro-sens" type="range" min="1" max="20" value="8" step="1">
+        </label>
+        <label style="flex:1">Push interval (ms)
+          <input id="alpaca-push-interval" type="number" value="6000" min="200" step="100" style="width:120px">
+        </label>
+      </div>
+
+      <div class="row">
+        <button id="alpaca-clear-log" class="small">Clear Log</button>
+        <div class="muted" style="flex:1; text-align:right">Mode exclusif : Push OU Pull</div>
+      </div>
+
+      <div id="alpaca-gyro-indicator">Gyro carte: ON</div>
+      <div id="alpaca-log" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const root = document.getElementById('alpaca-root');
+      if (!root) return;
+
+      const STORAGE_KEY = 'alpaca_pos_mode';
+
+      function viewportWidth() {
+        return Math.max(document.documentElement.clientWidth || window.innerWidth, 0);
+      }
+
+      // Applique position seulement si viewport > 425 (pour ne pas écraser le responsive mobile)
+      function applyPosition(value) {
+        const vw = viewportWidth();
+        try { sessionStorage.setItem(STORAGE_KEY, String(value)); } catch(e){}
+        if (vw <= 425) return; // CSS media query gère le mobile
+        if (value === 'center') {
+          root.style.left = '50%';
+          root.style.right = '';
+          root.style.transform = 'translateX(-50%)';
+          root.style.alignItems = 'center';
+        } else if (value === 'left') {
+          root.style.left = '8px';
+          root.style.right = '';
+          root.style.transform = 'translateX(0)';
+          root.style.alignItems = 'flex-start';
+        } else if (value === 'right') {
+          root.style.left = '';
+          root.style.right = '8px';
+          root.style.transform = 'translateX(0)';
+          root.style.alignItems = 'flex-end';
+        } else {
+          const n = Number(value);
+          if (Number.isNaN(n)) return;
+          const clamped = Math.max(0, Math.min(50, n));
+          const vwPx = viewportWidth();
+          const leftPercent = (clamped / 50) * 50;
+          const leftPx = Math.round((leftPercent / 100) * vwPx);
+          root.style.left = leftPx + 'px';
+          root.style.right = '';
+          root.style.transform = 'translateX(0)';
+          root.style.alignItems = 'flex-start';
+        }
+      }
+
+      // Restore saved position (only if desktop)
+      (function restore(){
+        const vw = viewportWidth();
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (vw <= 425) {
+          // mobile: do nothing (CSS)
+          return;
+        }
+        if (!saved) applyPosition('center');
+        else if (saved === 'left' || saved === 'center' || saved === 'right') applyPosition(saved);
+        else applyPosition(Number(saved));
+      })();
+
+      window.addEventListener('resize', () => {
+        const vw = viewportWidth();
+        const saved = sessionStorage.getItem(STORAGE_KEY);
+        if (vw <= 425) {
+          // remove inline styles that could conflict with media query
+          root.style.left = '';
+          root.style.right = '';
+          root.style.transform = '';
+          root.style.alignItems = '';
+          return;
+        }
+        if (!saved) applyPosition('center');
+        else if (saved === 'left' || saved === 'center' || saved === 'right') applyPosition(saved);
+        else applyPosition(Number(saved));
+      });
+
+      // API console
+      window.AlpacaPosition = {
+        set: (v) => { applyPosition(v); console.log('Alpaca position set to', v); },
+        left: () => { applyPosition('left'); console.log('Alpaca moved to left-top'); },
+        right: () => { applyPosition('right'); console.log('Alpaca moved to right-top'); },
+        center: () => { applyPosition('center'); console.log('Alpaca moved to center-top'); },
+        get: () => sessionStorage.getItem(STORAGE_KEY) || 'center'
+      };
+
+      // Toggle panneau
+      const toggle = document.getElementById('alpaca-toggle');
+      const panel = document.getElementById('alpaca-panel');
+      if (toggle && panel) {
+        toggle.addEventListener('click', () => {
+          const isOpen = panel.style.display === 'block';
+          if (isOpen) {
+            panel.style.display = 'none';
+            toggle.setAttribute('aria-expanded', 'false');
+          } else {
+            panel.style.display = 'block';
+            toggle.setAttribute('aria-expanded', 'true');
+          }
+        });
+      }
+
+      // Clear log
+      const clearBtn = document.getElementById('alpaca-clear-log');
+      const logEl = document.getElementById('alpaca-log');
+      if (clearBtn && logEl) {
+        clearBtn.addEventListener('click', () => { logEl.textContent = ''; });
+      }
+    })();
+
+/* ---------- Global state ---------- */
+window.alpaca_state = window.alpaca_state || {
+  host: null,
+  device: 0,
+  pushTimer: null,
+  pullTimer: null,
+  clientId: 0,
+  clientTransactionId: 0,
+  pushIntervalMs: 6000
+};
+
+/* ---------- Logging helper ---------- */
+function alpaca_log(msg) {
+  const el = document.getElementById('alpaca-log');
+  try {
+    if (el) {
+      const line = document.createElement('div');
+      line.textContent = `${new Date().toISOString()} - ${msg}`;
+      el.insertBefore(line, el.firstChild);
+    }
+  } catch (e) { /* ignore DOM errors */ }
+  if (window && window.console) console.info('[Alpaca]', msg);
+}
+
+/* ---------- gdata fallback ---------- */
+window.gdata = window.gdata || { lat: null, lon: null, time: Date.now() };
+
+/* ---------- rayFromPos (conservé) ---------- */
+function rayFromPos(RAd, DEd) {
+  if (!window.gdata) return [0, 0, 0];
+  var deg2rad = Math.PI / 180;
+  var RA = RAd * deg2rad;
+  var DE = DEd * deg2rad;
+  var jd = gdata.time * 1e-3 / 86400.0 + 2440587.5;
+  var tu = jd - 2451545.0;
+  var angle = Math.PI * 2 * (0.7790572732640 + 1.00273781191135448 * tu);
+  var q = angle + gdata.lon * deg2rad;
+  var H = q - RA;
+  var f = deg2rad * gdata.lat;
+  var az_y = Math.sin(H);
+  var az_x = (Math.cos(H) * Math.sin(f) - Math.tan(DE) * Math.cos(f));
+  var az = Math.atan2(az_y, az_x);
+  var sinH = Math.sin(f) * Math.sin(DE) + Math.cos(f) * Math.cos(DE) * Math.cos(H);
+  var hz = Math.asin(sinH);
+  var ray_n = -Math.cos(az) * Math.cos(hz);
+  var ray_e = -Math.sin(az) * Math.cos(hz);
+  var ray_u = Math.sin(hz);
+  return [ray_e, ray_n, ray_u];
+}
+
+/* ---------- Gyro state and listener (conservé) ---------- */
+window._alpaca_gyro = window._alpaca_gyro || { available: false, alpha: 0, beta: 0, gamma: 0, mapEnabled: true };
+if (!window._deviceOrientationListenerInstalled) {
+  window._deviceOrientationListenerInstalled = true;
+  window._lastDeviceOrientationEvent = null;
+  function gyroListener(e) {
+    window._lastDeviceOrientationEvent = e;
+    const heading = (typeof e.webkitCompassHeading === 'number') ? e.webkitCompassHeading : e.alpha;
+    if (typeof heading === 'number') {
+      window._alpaca_gyro.available = true;
+      let h = heading;
+      if (h < 0) h = (h % 360) + 360;
+      window._alpaca_gyro.alpha = ((h % 360) + 360) % 360;
+    }
+    if (typeof e.beta === 'number') window._alpaca_gyro.beta = e.beta;
+    if (typeof e.gamma === 'number') window._alpaca_gyro.gamma = e.gamma;
+  }
+  if ('ondeviceorientationabsolute' in window) {
+    window.addEventListener('deviceorientationabsolute', gyroListener, { passive: true });
+  }
+  if ('ondeviceorientation' in window) {
+    window.addEventListener('deviceorientation', gyroListener, { passive: true });
+  }
+}
+
+/* ---------- UI helpers (indicator only) ---------- */
+function onMapGyroEnabledChanged(enabled) {
+  const el = document.getElementById('alpaca-gyro-indicator');
+  if (!el) return;
+  el.textContent = enabled ? 'Gyro carte: ON' : 'Gyro carte: OFF';
+  el.style.opacity = enabled ? '1' : '0.6';
+}
+function setUseGyroForMap(enabled) {
+  window._alpaca_gyro = window._alpaca_gyro || { available: false, alpha: 0, beta: 0, gamma: 0, mapEnabled: true };
+  window._alpaca_gyro.mapEnabled = !!enabled;
+  onMapGyroEnabledChanged(!!enabled);
+}
+onMapGyroEnabledChanged(window._alpaca_gyro.mapEnabled);
+
+/* ---------- Robust fetch with diagnostics (remplace _fetchTimeout) ---------- */
+async function fetchWithDiagnostics(url, opts = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, Object.assign({
+      method: opts.method || 'GET',
+      headers: Object.assign({}, opts.headers || {}, { 'Accept': 'application/json' }),
+      body: opts.body || null,
+      mode: opts.mode || 'cors',
+      credentials: opts.credentials || 'same-origin',
+      signal: controller.signal
+    }, opts.fetchOptions || {}));
+    clearTimeout(id);
+    const text = await response.text().catch(() => null);
+    if (!response.ok) {
+      alpaca_log(`Network error ${response.status} ${response.statusText} for ${url}`);
+      console.debug('Alpaca raw response:', text);
+      return { ok: false, status: response.status, statusText: response.statusText, text };
+    }
+    try {
+      const json = text ? JSON.parse(text) : null;
+      return { ok: true, json, text };
+    } catch (e) {
+      return { ok: true, json: null, text };
+    }
+  } catch (err) {
+    clearTimeout(id);
+    if (err.name === 'AbortError') {
+      alpaca_log(`Fetch timed out for ${url} (possible network/CORS/mixed-content).`);
+      return { ok: false, error: 'timeout', message: err.message };
+    } else {
+      alpaca_log(`Fetch failed for ${url}: ${err.message}`);
+      console.error(err);
+      return { ok: false, error: 'network', message: err.message };
+    }
+  }
+}
+
+/* ---------- GET helper ---------- */
+async function alpaca_get(prop, options = {}) {
+  if (!window.alpaca_state || !window.alpaca_state.host) {
+    alpaca_log('GET aborted: host not set');
+    return null;
+  }
+  const host = window.alpaca_state.host.replace(/\/$/, '');
+  const device = window.alpaca_state.device || 0;
+  const url = `${host}/api/v1/telescope/${device}/${prop.toLowerCase()}?ClientID=${alpaca_state.clientId}&ClientTransactionID=${+alpaca_state.clientTransactionId}`;
+  try {
+    alpaca_log(`GET -> ${prop.toLowerCase()}`);
+    const r = await fetchWithDiagnostics(url, { method: 'GET', mode: options.mode || 'cors' }, options.timeoutMs || 10000);
+    if (!r.ok) {
+      console.debug('GET diagnostics:', r);
+      return null;
+    }
+    // r.json may be null if response is plain text
+    const payload = r.json !== null ? r.json : (r.text || null);
+    // Normalize common Alpaca payload shapes
+    if (payload && typeof payload === 'object') {
+      if (payload.ErrorNumber && payload.ErrorNumber !== 0) {
+        alpaca_log(`GET ${prop} error: ${payload.ErrorMessage || ('ErrorNumber ' + payload.ErrorNumber)}`);
+        console.warn('Alpaca GET error object:', payload);
+        return null;
+      }
+      if (payload.Value !== undefined) return payload.Value;
+      if (payload.RightAscension !== undefined || payload.Declination !== undefined) return payload;
+      if (payload.value !== undefined) return payload.value;
+    }
+    if (typeof payload === 'string' && payload.trim() !== '') {
+      const n = parseFloat(payload);
+      if (!isNaN(n)) return n;
+    }
+    return payload;
+  } catch (err) {
+    if (err && err.name === 'AbortError') {
+      alpaca_log(`GET ${prop} timed out (possible network/CORS).`);
+    } else {
+      alpaca_log(`GET ${prop} failed: ${err && err.message ? err.message : err}`);
+      console.error('Alpaca GET failed', err);
+    }
+    return null;
+  }
+}
+
+/* ---------- PUT helper ---------- */
+async function alpaca_put(method, params = {}, options = {}) {
+  if (!window.alpaca_state || !window.alpaca_state.host) {
+    alpaca_log('PUT aborted: host not set');
+    return null;
+  }
+  const host = alpaca_state.host.replace(/\/$/, '');
+  const device = alpaca_state.device || 0;
+  const url = `${host}/api/v1/telescope/${device}/${method.toLowerCase()}`;
+  // Default to form-encoded body (bridge often expects form data), but allow override
+  let body, headers;
+  if (options.json === true) {
+    headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
+    body = JSON.stringify(Object.assign({ ClientID: alpaca_state.clientId, ClientTransactionID: +alpaca_state.clientTransactionId }, params));
+  } else {
+    headers = Object.assign({ 'Content-Type': 'application/x-www-form-urlencoded' }, options.headers || {});
+    const sp = new URLSearchParams(Object.assign({ ClientID: alpaca_state.clientId, ClientTransactionID: +alpaca_state.clientTransactionId }, params));
+    body = sp.toString();
+  }
+  try {
+    const r = await fetchWithDiagnostics(url, {
+      method: 'PUT',
+      headers,
+      body,
+      mode: options.mode || 'cors',
+      credentials: options.credentials || 'same-origin'
+    }, options.timeoutMs || 10000);
+    if (!r.ok) {
+      alpaca_log(`PUT ERROR ${r.status}: ${r.text || r.message || 'Unknown'}`);
+      console.error('Alpaca PUT error', r);
+      return null;
+    }
+    alpaca_log('PUT OK');
+    return r.json !== null ? r.json : r.text;
+  } catch (err) {
+    if (err && err.name === 'AbortError') alpaca_log('PUT timed out (possible network/CORS).');
+    else alpaca_log('PUT failed: ' + (err && err.message ? err.message : err));
+    console.error('Alpaca PUT failed', err);
+    return null;
+  }
+}
+
+/* ---------- Push / Pull implementations (améliorés) ---------- */
+async function alpaca_push() {
+  const g = window.gdata || {};
+  const gyro = window._alpaca_gyro || {};
+  const host = (window.alpaca_state && window.alpaca_state.host) || document.getElementById('alpaca-host')?.value;
+  const device = (window.alpaca_state && window.alpaca_state.device) || parseInt(document.getElementById('alpaca-device')?.value || 0, 10);
+  let alpha = null;
+  if (gyro && typeof gyro.alpha === 'number') alpha = gyro.alpha;
+  if ((alpha === null || alpha === undefined) && window._lastDeviceOrientationEvent && typeof window._lastDeviceOrientationEvent.webkitCompassHeading === 'number') {
+    alpha = window._lastDeviceOrientationEvent.webkitCompassHeading;
+  }
+  if (typeof alpha === 'number') alpha = ((alpha % 360) + 360) % 360;
+  const lat = (typeof g.lat === 'number') ? g.lat : null;
+  const lon = (typeof g.lon === 'number') ? g.lon : null;
+  let ra = null;
+  let dec = (lat !== null) ? lat : 0;
+  if (typeof alpha === 'number') {
+    ra = alpha / 15;
+  } else if (lon !== null) {
+    ra = (((lon % 360) + 360) % 360) / 15;
+  } else {
+    alpaca_log('Push skipped: no gyro alpha and no GPS lon');
+    return;
+  }
+  const sens = parseInt(document.getElementById('alpaca-gyro-sens')?.value || '8', 10);
+  const multiplier = 1 + ((sens - 8) / 40);
+  ra = ra * multiplier;
+  alpaca_log(`PUSH debug host=${host} device=${device} alpha=${alpha} lon=${lon} lat=${lat} -> RA=${ra.toFixed(6)} DEC=${dec.toFixed(6)}`);
+  try {
+    // Use form-encoded by default (bridge expects it), but send numeric values
+    await alpaca_put('slewtocoordinates', { RightAscension: ra, Declination: dec });
+    alpaca_log('PUSH sent');
+  } catch (e) {
+    alpaca_log('PUSH failed: ' + (e && e.message ? e.message : e));
+    console.error(e);
+  }
+}
+
+async function alpaca_pull() {
+  if (!window.alpaca_state || !window.alpaca_state.host) {
+    alpaca_log('Pull aborted: host not set');
+    return;
+  }
+  const raResp = await alpaca_get('rightascension');
+  const decResp = await alpaca_get('declination');
+  let ra = null, dec = null;
+
+  function extract(obj) {
+    if (obj === null || obj === undefined) return {};
+    if (typeof obj === 'number') return { value: obj };
+    if (typeof obj === 'string' && !isNaN(parseFloat(obj))) return { value: parseFloat(obj) };
+    if (typeof obj === 'object') {
+      if (obj.RightAscension !== undefined || obj.Declination !== undefined) {
+        return { ra: obj.RightAscension, dec: obj.Declination };
+      }
+      if (obj.Value !== undefined) return extract(obj.Value);
+      if (obj.value !== undefined) return { value: obj.value };
+    }
+    return {};
+  }
+
+  const a = extract(raResp);
+  const b = extract(decResp);
+
+  if (a.value !== undefined && b.value !== undefined) {
+    ra = a.value; dec = b.value;
+  } else {
+    if (a.ra !== undefined) ra = a.ra;
+    if (a.dec !== undefined) dec = a.dec;
+    if (b.ra !== undefined && ra == null) ra = b.ra;
+    if (b.dec !== undefined && dec == null) dec = b.dec;
+  }
+
+  // Fallback to /position if needed
+  if (ra == null || dec == null) {
+    const host = alpaca_state.host.replace(/\/$/, '');
+    const device = alpaca_state.device || 0;
+    const posUrl = `${host}/api/v1/telescope/${device}/position?ClientID=${alpaca_state.clientId}&ClientTransactionID=${+alpaca_state.clientTransactionId}`;
+    try {
+      alpaca_log('Fallback GET -> position');
+      const r = await fetchWithDiagnostics(posUrl, { method: 'GET' }, 10000);
+      if (r.ok) {
+        const text = r.text;
+        const json = r.json;
+        if (json && json.Value !== undefined) {
+          const v = json.Value;
+          if (typeof v === 'number') ra = v;
+          else if (typeof v === 'object') {
+            if (v.RightAscension !== undefined) ra = v.RightAscension;
+            if (v.Declination !== undefined) dec = v.Declination;
+          }
+        } else if (json && (json.RightAscension !== undefined || json.Declination !== undefined)) {
+          if (json.RightAscension !== undefined) ra = json.RightAscension;
+          if (json.Declination !== undefined) dec = json.Declination;
+        } else if (text) {
+          try {
+            const parsed = JSON.parse(text);
+            if (parsed && parsed.Value) {
+              if (parsed.Value.RightAscension !== undefined) ra = parsed.Value.RightAscension;
+              if (parsed.Value.Declination !== undefined) dec = parsed.Value.Declination;
+            }
+          } catch (e) { /* ignore parse errors */ }
+        }
+      } else {
+        console.debug('Fallback position diagnostics:', r);
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') alpaca_log('Fallback GET timed out (possible network/CORS).');
+      else alpaca_log('Fallback GET failed: ' + (err && err.message ? err.message : err));
+      console.error('Alpaca fallback GET error', err);
+    }
+  }
+
+  if (ra == null || dec == null) {
+    alpaca_log(`Pull failed: RA or DEC missing (ra=${ra} dec=${dec}).`);
+    return;
+  }
+
+  alpaca_log(`PULL RA=${ra} DEC=${dec}`);
+  const lon = ra * 15;
+  const lat = dec;
+
+  if (typeof applyAlpacaPosition === 'function') {
+    try {
+      applyAlpacaPosition({ lat, lon });
+      alpaca_log('Applied pulled position via applyAlpacaPosition');
+    } catch (e) {
+      alpaca_log('applyAlpacaPosition threw: ' + (e && e.message ? e.message : e));
+      console.error(e);
+    }
+  } else if (window.gdata) {
+    gdata.lat = lat;
+    gdata.lon = lon;
+    gdata.time = Date.now();
+    alpaca_log('gdata updated from pull');
+    if (typeof updateMapFromGData === 'function') {
+      try { updateMapFromGData(); } catch (e) { console.error('updateMapFromGData error', e); }
+    }
+  } else {
+    window._alpaca_lastPull = { ra, dec, lat, lon, timestamp: Date.now() };
+    alpaca_log('Pulled position stored in window._alpaca_lastPull');
+  }
+}
+
+/* ---------- Timers and mutual exclusion (améliorés) ---------- */
+function startPush() {
+  stopPull();
+  stopPush();
+  const interval = parseInt(document.getElementById('alpaca-push-interval')?.value || 6000, 10);
+  alpaca_state.pushIntervalMs = Math.max(200, interval);
+  alpaca_state.pushTimer = setInterval(() => { alpaca_push(); }, alpaca_state.pushIntervalMs);
+  alpaca_log(`Push started (interval ${alpaca_state.pushIntervalMs} ms)`);
+  // UI: ensure mutual exclusion
+  const pullToggle = document.getElementById('alpaca-toggle-pull');
+  const pushToggle = document.getElementById('alpaca-toggle-push');
+  if (pullToggle) { pullToggle.checked = false; pullToggle.disabled = true; }
+  if (pushToggle) { pushToggle.checked = true; pushToggle.disabled = false; }
+}
+
+function stopPush() {
+  if (alpaca_state.pushTimer) { clearInterval(alpaca_state.pushTimer); alpaca_state.pushTimer = null; }
+  alpaca_log('Push stopped');
+  const pullToggle = document.getElementById('alpaca-toggle-pull');
+  if (pullToggle) pullToggle.disabled = false;
+}
+
+function startPull() {
+  stopPush();
+  stopPull();
+  setUseGyroForMap(false);
+  // Poll every second by default
+  alpaca_state.pullTimer = setInterval(() => { alpaca_pull(); }, 1000);
+  alpaca_log('Pull started (map gyro disabled)');
+  // UI: ensure mutual exclusion
+  const pullToggle = document.getElementById('alpaca-toggle-pull');
+  const pushToggle = document.getElementById('alpaca-toggle-push');
+  if (pullToggle) { pullToggle.checked = true; pullToggle.disabled = false; }
+  if (pushToggle) { pushToggle.checked = false; pushToggle.disabled = true; }
+}
+
+function stopPull() {
+  if (alpaca_state.pullTimer) { clearInterval(alpaca_state.pullTimer); alpaca_state.pullTimer = null; }
+  setUseGyroForMap(true);
+  alpaca_log('Pull stopped (map gyro enabled)');
+  const pushToggle = document.getElementById('alpaca-toggle-push');
+  if (pushToggle) pushToggle.disabled = false;
+}
+
+/* ---------- UI toggles (exclusive) ---------- */
+(function wireToggles() {
+  const pushEl = document.getElementById('alpaca-toggle-push');
+  const pullEl = document.getElementById('alpaca-toggle-pull');
+  const hostEl = document.getElementById('alpaca-host');
+  const deviceEl = document.getElementById('alpaca-device');
+
+  function ensureStateFromUI() {
+    if (!window.alpaca_state) window.alpaca_state = {};
+    if (hostEl && hostEl.value) window.alpaca_state.host = hostEl.value;
+    if (deviceEl) window.alpaca_state.device = parseInt(deviceEl.value || 0, 10);
+  }
+
+  if (pushEl) {
+    pushEl.addEventListener('change', function () {
+      ensureStateFromUI();
+      if (this.checked) {
+        if (pullEl) { pullEl.checked = false; pullEl.disabled = true; }
+        startPush();
+      } else {
+        stopPush();
+      }
+    });
+  }
+
+  if (pullEl) {
+    pullEl.addEventListener('change', function () {
+      ensureStateFromUI();
+      if (this.checked) {
+        if (pushEl) { pushEl.checked = false; pushEl.disabled = true; }
+        startPull();
+      } else {
+        stopPull();
+      }
+    });
+  }
+
+  // Clear log button
+  const clearBtn = document.getElementById('alpaca-clear-log');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      const el = document.getElementById('alpaca-log');
+      if (el) el.innerHTML = '';
+      alpaca_log('Log cleared by user');
+    });
+  }
+
+  // On load, harmonize UI and state
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      if (!pushEl || !pullEl) return;
+      // If both checked, prefer Pull (as original logic did)
+      if (pushEl.checked && pullEl.checked) {
+        pushEl.checked = false;
+        pullEl.checked = true;
+      }
+      // Apply initial states
+      if (pullEl.checked) {
+        ensureStateFromUI();
+        startPull();
+      } else if (pushEl.checked) {
+        ensureStateFromUI();
+        startPush();
+      }
+    } catch (e) { console.error(e); }
+  });
+})();
+
+/* ---------- Diagnostic helpers (console) ---------- */
+window._alpaca_diagStart = function () {
+  if (window._alpaca_diag && window._alpaca_diag.interval) return;
+  window._alpaca_diag = window._alpaca_diag || {};
+  window._alpaca_diag.interval = setInterval(() => {
+    const gyro = window._alpaca_gyro || {};
+    const g = window.gdata || {};
+    console.log('ALPACA_DIAG', {
+      time: new Date().toISOString(),
+      gyro_available: !!gyro.available,
+      gyro_alpha: gyro.alpha,
+      gyro_beta: gyro.beta,
+      gyro_gamma: gyro.gamma,
+      mapEnabled: gyro.mapEnabled,
+      gdata_lat: g.lat,
+      gdata_lon: g.lon,
+      host: (window.alpaca_state && window.alpaca_state.host) || document.getElementById('alpaca-host')?.value,
+      device: (window.alpaca_state && window.alpaca_state.device) || document.getElementById('alpaca-device')?.value
+    });
+  }, 1000);
+  alpaca_log('Diagnostic interval started (console). Call _alpaca_diagStop() to stop.');
+};
+window._alpaca_diagStop = function () {
+  if (window._alpaca_diag && window._alpaca_diag.interval) {
+    clearInterval(window._alpaca_diag.interval);
+    window._alpaca_diag.interval = null;
+    alpaca_log('Diagnostic interval stopped');
+  }
+};
+
+/* ---------- Initial note ---------- */
+alpaca_log('Alpaca UI loaded. Configure Host and Device, then check Push or Pull toggles.');
+
+</script>
+
+<script>
+
+/**
+ * toggleFS(fs) existante : on l'adapte pour appeler Android si présent,
+ * et pour informer Android quand l'état change.
+ */
+function toggleFS(fs) {
+  try {
+    if (window.AndroidApp) {
+      // Si la page demande un état précis, appeler enter/exit
+      if (typeof window.AndroidApp.enterFullscreen === 'function' && fs === true) {
+        window.AndroidApp.enterFullscreen();
+        return;
+      }
+      if (typeof window.AndroidApp.exitFullscreen === 'function' && fs === false) {
+        window.AndroidApp.exitFullscreen();
+        return;
+      }
+      // Sinon demander un toggle
+      if (typeof window.AndroidApp.toggleFullscreen === 'function') {
+        window.AndroidApp.toggleFullscreen();
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('Android interface error', e);
+  }
+
+  // Fallback navigateur
+  if (fs) {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(()=>{});
+    } else if (document.documentElement.webkitRequestFullscreen) {
+      document.documentElement.webkitRequestFullscreen();
+    } else {
+      document.documentElement.classList.add('force-fullscreen-fallback');
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(()=>{});
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else {
+      document.documentElement.classList.remove('force-fullscreen-fallback');
+    }
+  }
+}
+
+/* Synchroniser l'état avec l'app Android */
+document.addEventListener('fullscreenchange', () => {
+  const isFs = !!document.fullscreenElement;
+  document.documentElement.classList.toggle('is-fullscreen', isFs);
+  try {
+    if (window.AndroidApp && typeof window.AndroidApp.onFullscreenChanged === 'function') {
+      window.AndroidApp.onFullscreenChanged(isFs);
+    }
+  } catch (e) { /* ignore */ }
+});
+
+</script>
+
+<script>
+
+function requestGeolocation() {
+  var manualLocation = getManualLatLonOverrideValues();
+  if (manualLocation != null) {
+    showpos(manualLocation);
+    return;
+  }
+
+  // Si navigator.geolocation disponible, on l'utilise
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      function(position) {
+        showpos(position);
+      },
+      function(error) {
+        // Si permission refusée, et si on est dans la WebView Android, demander la permission native puis retenter
+        if (error && error.code === error.PERMISSION_DENIED) {
+          try {
+            if (window.AndroidApp && typeof window.AndroidApp.requestLocationPermission === 'function') {
+              window.AndroidApp.requestLocationPermission();
+              // Retenter après un court délai (l'utilisateur peut accepter)
+              setTimeout(function() {
+                // Retenter navigator.geolocation
+                if (navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition(
+                    function(position) { showpos(position); },
+                    function(err2) { console.warn('Retry geolocation failed', err2); }
+                  );
+                }
+              }, 1200);
+              return;
+            }
+          } catch (e) {
+            console.warn('AndroidApp.requestLocationPermission error', e);
+          }
+        }
+        // Autres erreurs ou pas d'AndroidApp : log / fallback
+        console.warn('Geolocation error', error);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+    return;
+  }
+
+  // Si pas de navigator.geolocation, essayer via AndroidApp (si exposé)
+  try {
+    if (window.AndroidApp && typeof window.AndroidApp.requestLocationPermission === 'function') {
+      window.AndroidApp.requestLocationPermission();
+      // Après demande native, retenter navigator.geolocation
+      setTimeout(function() {
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function(position) { showpos(position); },
+            function(err) { console.warn('Geolocation after native request failed', err); }
+          );
+        } else {
+          console.warn('Geolocation not supported after native request');
+        }
+      }, 1200);
+      return;
+    }
+  } catch (e) {
+    console.warn('AndroidApp.requestLocationPermission error', e);
+  }
+
+  // Fallback final : pas de geolocation
+  console.warn('Geolocation non supportée');
+}
+
+</script>
+
+<!-- Alpaca stacking safe fix: Alpaca above buttons, under settings; close Alpaca when settings open -->
+<style>
+  /* Valeurs par défaut non intrusives (peuvent être ajustées) */
+  /* On ne touche pas à la carte ici */
+  #alpaca-root { position: fixed !important; top: 8px !important; left: 50% !important; transform: translateX(-50%) !important; pointer-events: none !important; }
+  #alpaca-root > #alpaca-toggle { pointer-events: auto !important; display: block !important; margin: 0 auto !important; }
+</style>
+
+<script>
+(function installAlpacaStacking(){
+  if(window._alpaca_stack_installed) return;
+  window._alpaca_stack_installed = true;
+
+  // Sélecteurs probables
+  const byId = id => document.getElementById(id) || null;
+  const alpacaRoot = byId('alpaca-root') || document.querySelector('[id^="alpaca"]');
+  const alpacaPanel = byId('alpaca-panel') || document.querySelector('[aria-label*="Alpaca"]');
+  const alpacaToggle = byId('alpaca-toggle') || (alpacaRoot && alpacaRoot.querySelector('button'));
+  const gearBtn = byId('nocompass_button') || byId('alpaca-gear') || Array.from(document.querySelectorAll('button')).find(b=>{
+    const t = ((b.id||'') + ' ' + (b.title||'') + ' ' + (b.getAttribute('aria-label')||'') + ' ' + (b.textContent||'')).toLowerCase();
+    return /nocompass|gear|param|settings|⚙|engrenage/.test(t);
+  }) || null;
+  const configMenu = byId('config') || document.querySelector('.config_div');
+  const quickStart = byId('quick_start') || document.querySelector('.config_div.r2l');
+
+  // Desired stacking values (non-destructive: only apply if current computed z is lower)
+  const desired = { gear: 800, alpaca: 900, panel: 901, config: 1200 };
+
+  // Utility: get numeric computed z-index (null if not an element)
+  function computedZ(el){
+    if(!el) return null;
+    const z = window.getComputedStyle(el).zIndex;
+    const n = Number(z);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  // Apply z-index only when safe (do not lower existing higher z-index)
+  function ensureZ(el, value){
+    if(!el) return;
+    const cur = computedZ(el);
+    if(cur === null || cur < value){
+      el.style.zIndex = String(value);
+    }
+  }
+
+  // Ensure alpacaRoot is direct child of body to avoid stacking-context surprises
+  if(alpacaRoot && alpacaRoot.parentElement !== document.body){
+    document.body.appendChild(alpacaRoot);
+  }
+
+  // Apply stacking non-destructively
+  ensureZ(gearBtn, desired.gear);
+  ensureZ(alpacaRoot, desired.alpaca);
+  ensureZ(alpacaPanel, desired.panel);
+  ensureZ(configMenu, desired.config);
+  if(quickStart) ensureZ(quickStart, desired.config);
+
+  // When config opens, close Alpaca panel
+  // Detect open by: data-open="true" OR display != 'none' OR aria-hidden === 'false'
+  function isOpenMenu(el){
+    if(!el) return false;
+    const dataOpen = el.getAttribute && el.getAttribute('data-open') === 'true';
+    const aria = el.getAttribute && el.getAttribute('aria-hidden') === 'false';
+    const disp = window.getComputedStyle(el).display;
+    return dataOpen || aria || (disp && disp !== 'none');
+  }
+
+  // Close Alpaca panel safely
+  function closeAlpaca(){
+    if(!alpacaPanel) return;
+    // prefer existing class-based mechanism if present
+    try{
+      alpacaPanel.classList.remove('alpaca-open');
+      alpacaPanel.style.display = 'none';
+      alpacaPanel.setAttribute('aria-hidden','true');
+      if(alpacaToggle) alpacaToggle.setAttribute('aria-expanded','false');
+    }catch(e){}
+  }
+
+  // Observe configMenu for changes (attributes/style) and react
+  let configObserver = null;
+  if(configMenu){
+    configObserver = new MutationObserver(function(mutations){
+      // if config becomes open, close alpaca
+      if(isOpenMenu(configMenu)){
+        closeAlpaca();
+      }
+    });
+    configObserver.observe(configMenu, { attributes: true, attributeFilter: ['style','data-open','aria-hidden'], subtree: false });
+    // also guard initial state
+    if(isOpenMenu(configMenu)) closeAlpaca();
+  }
+
+  // Also observe quickStart if present
+  let quickObserver = null;
+  if(quickStart){
+    quickObserver = new MutationObserver(function(){
+      if(isOpenMenu(quickStart)) closeAlpaca();
+    });
+    quickObserver.observe(quickStart, { attributes: true, attributeFilter: ['style','data-open','aria-hidden'], subtree: false });
+    if(isOpenMenu(quickStart)) closeAlpaca();
+  }
+
+  // If the app opens config via global clicks, ensure we close Alpaca on the next animation frame after any click that opens config
+  // This is conservative and non-invasive: it does not stop other handlers.
+  function globalClickHandler(e){
+    // small delay to let app toggle menus first
+    requestAnimationFrame(() => {
+      if((configMenu && isOpenMenu(configMenu)) || (quickStart && isOpenMenu(quickStart))){
+        closeAlpaca();
+      }
+    });
+  }
+  document.addEventListener('click', globalClickHandler, true);
+
+  // Expose rollback to restore previous inline z-indexes and remove observers/listeners
+  window._alpaca_stack_control = {
+    rollback: function(){
+      try{
+        if(gearBtn && gearBtn.style) gearBtn.style.zIndex = '';
+        if(alpacaRoot && alpacaRoot.style) alpacaRoot.style.zIndex = '';
+        if(alpacaPanel && alpacaPanel.style) alpacaPanel.style.zIndex = '';
+        if(configMenu && configMenu.style) configMenu.style.zIndex = '';
+        if(quickStart && quickStart.style) quickStart.style.zIndex = '';
+        if(configObserver) configObserver.disconnect();
+        if(quickObserver) quickObserver.disconnect();
+        document.removeEventListener('click', globalClickHandler, true);
+        delete window._alpaca_stack_installed;
+        delete window._alpaca_stack_control;
+        console.log('Alpaca stacking rollback executed.');
+      }catch(e){
+        console.error('Rollback error', e);
+      }
+    }
+  };
+
+})();
+
+/* --- Alpaca: sync & protect host/device/pushInterval/gyroSens (PLACE AT END OF JS) --- */
+(function(){
+  const KEY = 'alpaca_basic_settings_v2';
+
+  function loadStored(){
+    try { return JSON.parse(localStorage.getItem(KEY) || 'null'); }
+    catch(e){ return null; }
+  }
+  function saveStored(s){
+    try { localStorage.setItem(KEY, JSON.stringify(s)); console.info('[alpacaMemory] saved', s); }
+    catch(e){ console.warn('[alpacaMemory] save failed', e); }
+  }
+
+  function snapshotFromUIorState(){
+    const host = document.getElementById('alpaca-host')?.value ?? window.alpaca_state?.host ?? '';
+    const device = Number(document.getElementById('alpaca-device')?.value ?? window.alpaca_state?.device ?? 0);
+    const pushInterval = Number(document.getElementById('alpaca-push-interval')?.value ?? window.alpaca_state?.pushIntervalMs ?? 6000);
+    const gyroSens = Number(document.getElementById('alpaca-gyro-sens')?.value ?? window.alpaca_state?.gyroSens ?? 8);
+    const s = { host, device, pushInterval, gyroSens };
+    saveStored(s);
+    return s;
+  }
+
+  function applyStoredToStateAndUI(stored, force){
+    if(!stored) return;
+    window.alpaca_state = window.alpaca_state || {};
+    if(force || !window.alpaca_state.host || window.alpaca_state.host.includes('127.0.0.1')) window.alpaca_state.host = stored.host || window.alpaca_state.host;
+    if(typeof stored.device !== 'undefined') window.alpaca_state.device = stored.device;
+    if(typeof stored.pushInterval !== 'undefined') window.alpaca_state.pushIntervalMs = stored.pushInterval;
+    if(typeof stored.gyroSens !== 'undefined') window.alpaca_state.gyroSens = stored.gyroSens;
+
+    const h = document.getElementById('alpaca-host');
+    if(h && (force || !h.value || h.value.includes('127.0.0.1'))) h.value = window.alpaca_state.host || stored.host || h.value;
+    const d = document.getElementById('alpaca-device'); if(d && (force || !d.value)) d.value = String(window.alpaca_state.device ?? stored.device ?? d.value);
+    const p = document.getElementById('alpaca-push-interval'); if(p && (force || !p.value)) p.value = String(window.alpaca_state.pushIntervalMs ?? stored.pushInterval ?? p.value);
+    const g = document.getElementById('alpaca-gyro-sens'); if(g && (force || !g.value)) g.value = String(window.alpaca_state.gyroSens ?? stored.gyroSens ?? g.value);
+
+    console.info('[alpacaMemory] applied stored', {host: window.alpaca_state.host});
+  }
+
+  // Apply immediately (force)
+  const stored = loadStored();
+  if(stored) applyStoredToStateAndUI(stored, true);
+
+  // Attach listeners to inputs to persist immediately on change/input
+  ['alpaca-host','alpaca-device','alpaca-push-interval','alpaca-gyro-sens'].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change', snapshotFromUIorState);
+    el.addEventListener('input', () => {
+      if(el._alpaca_timer) clearTimeout(el._alpaca_timer);
+      el._alpaca_timer = setTimeout(() => { snapshotFromUIorState(); el._alpaca_timer = null; }, 200);
+    });
+  });
+
+  // Protect input against external resets (MutationObserver + polling fallback)
+  const hostEl = document.getElementById('alpaca-host');
+  if(hostEl){
+    const storedHost = stored?.host || window.alpaca_state?.host || '';
+    const mo = new MutationObserver(() => {
+      const cur = hostEl.value;
+      if(storedHost && (cur === '' || cur.includes('127.0.0.1'))) {
+        console.info('[alpacaMemory] input overwritten -> restoring', storedHost);
+        hostEl.value = storedHost;
+        snapshotFromUIorState();
+      }
+    });
+    mo.observe(hostEl, { attributes: true, attributeFilter: ['value'] });
+    setInterval(() => {
+      const cur = hostEl.value;
+      const desired = window.alpaca_state?.host || loadStored()?.host;
+      if(desired && (cur === '' || cur.includes('127.0.0.1'))) {
+        hostEl.value = desired;
+      }
+    }, 1000);
+  }
+
+  // Install proxy on window.alpaca_state to persist when host is written programmatically
+  try {
+    const base = window.alpaca_state || {};
+    const proxy = new Proxy(base, {
+      set(target, prop, value) {
+        target[prop] = value;
+        if(prop === 'host') {
+          const s = loadStored() || {};
+          s.host = value;
+          saveStored(s);
+          const el = document.getElementById('alpaca-host');
+          if(el) el.value = value;
+          console.info('[alpacaMemory] persisted host via proxy:', value);
+        }
+        return true;
+      }
+    });
+    window.alpaca_state = proxy;
+  } catch(e) {
+    console.warn('[alpacaMemory] proxy install failed', e);
+  }
+
+  // Expose debug API
+  window.alpacaBasicMemory = {
+    save: snapshotFromUIorState,
+    load: loadStored,
+    clear: function(){ localStorage.removeItem(KEY); console.info('[alpacaMemory] cleared'); },
+    debug: function(){ console.log('localStorage['+KEY+'] =', localStorage.getItem(KEY)); }
+  };
+
+  // Final log
+  console.info('[alpacaMemory] initialized (end-of-file protector)');
+})();
+
+</script>
+
+<script>
+
+/* Global Offset Module - complet et autonome
+   - Coller avant </body>
+   - Clamping des valeurs, wrapper persistant, debug, API exposée sur window
+*/
+
+(function GlobalOffsetModule(){
+  const STORAGE_KEY = 'basic_settings_v2';
+
+  // ----- Configuration par défaut -----
+  const DEFAULTS = { offsetAz: 0.0, offsetEl: 0.0 };
+  let limits = { az: { min: -180, max: 180 }, el: { min: -90, max: 90 } };
+  // signEl = -1 si tu veux que offsetEl positif "monte" (valeur par défaut choisie pour UX)
+  let cfg = { signEl: -1, debug: false, axisForEl: 'left' }; // axisForEl: 'left'|'top'|'fwd'
+
+  // ----- Etat interne -----
+  let state = Object.assign({}, DEFAULTS);
+  let wrapperInstalled = false;
+  let origGetCameraRays = null;
+
+  // ----- Utilitaires -----
+  function safeParse(s){ try { return JSON.parse(s); } catch(e){ return {}; } }
+  function clamp(v, min, max){ const n = Number(v); if (isNaN(n)) return min; return Math.max(min, Math.min(max, n)); }
+  function toFixed1(v){ return Number(v).toFixed(1); }
+  function toRad(d){ return d * Math.PI / 180; }
+
+  // ----- Storage -----
+  function loadFromStorage(){
+    try {
+      const parsed = safeParse(localStorage.getItem(STORAGE_KEY) || '{}');
+      if (typeof parsed.offsetAz !== 'undefined') state.offsetAz = clamp(parsed.offsetAz, limits.az.min, limits.az.max);
+      if (typeof parsed.offsetEl !== 'undefined') state.offsetEl = clamp(parsed.offsetEl, limits.el.min, limits.el.max);
+    } catch(e){ /* silent */ }
+  }
+  function saveToStorage(){
+    try {
+      const parsed = safeParse(localStorage.getItem(STORAGE_KEY) || '{}');
+      parsed.offsetAz = clamp(state.offsetAz, limits.az.min, limits.az.max);
+      parsed.offsetEl = clamp(state.offsetEl, limits.el.min, limits.el.max);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    } catch(e){ /* silent */ }
+  }
+
+  // ----- Public API exposée -----
+  function applyGlobalOffset({ az, el } = {}){
+    if (typeof az !== 'undefined') state.offsetAz = clamp(az, limits.az.min, limits.az.max);
+    if (typeof el !== 'undefined') state.offsetEl = clamp(el, limits.el.min, limits.el.max);
+    saveToStorage();
+    syncInputs();
+    window.__GOB_lastApplied = { offsetAz: state.offsetAz, offsetEl: state.offsetEl, t: Date.now() };
+  }
+  function getGlobalOffset(){ return { offsetAz: Number(state.offsetAz), offsetEl: Number(state.offsetEl) }; }
+  function resetGlobalOffset(){
+    state.offsetAz = DEFAULTS.offsetAz;
+    state.offsetEl = DEFAULTS.offsetEl;
+    saveToStorage();
+    syncInputs();
+  }
+  function setGlobalOffsetLimits(newLimits){
+    if (!newLimits) return;
+    if (newLimits.az && typeof newLimits.az.min === 'number') limits.az.min = newLimits.az.min;
+    if (newLimits.az && typeof newLimits.az.max === 'number') limits.az.max = newLimits.az.max;
+    if (newLimits.el && typeof newLimits.el.min === 'number') limits.el.min = newLimits.el.min;
+    if (newLimits.el && typeof newLimits.el.max === 'number') limits.el.max = newLimits.el.max;
+    // clamp current state and update UI/storage
+    state.offsetAz = clamp(state.offsetAz, limits.az.min, limits.az.max);
+    state.offsetEl = clamp(state.offsetEl, limits.el.min, limits.el.max);
+    saveToStorage();
+    syncInputs();
+  }
+  function setGlobalOffsetConfig(newCfg){
+    if (!newCfg) return;
+    if (typeof newCfg.signEl === 'number') cfg.signEl = newCfg.signEl;
+    if (typeof newCfg.debug === 'boolean') cfg.debug = newCfg.debug;
+    if (typeof newCfg.axisForEl === 'string') cfg.axisForEl = newCfg.axisForEl;
+    if (cfg.debug) console.log('GOB config', cfg);
+  }
+
+  // Expose API
+  window.applyGlobalOffset = applyGlobalOffset;
+  window.getGlobalOffset = getGlobalOffset;
+  window.resetGlobalOffset = resetGlobalOffset;
+  window.setGlobalOffsetLimits = setGlobalOffsetLimits;
+  window.setGlobalOffsetConfig = setGlobalOffsetConfig;
+  window.__GOB_limits = limits;
+
+  // ----- UI creation / binding -----
+  function ensureInputsExist(){
+    const container = document.querySelector('#basic-settings') || document.querySelector('.settings') || document.body;
+
+    // AZ
+    if (!document.getElementById('offset_az')){
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px 0;';
+      const label = document.createElement('label'); label.htmlFor='offset_az'; label.textContent='Offset Az (°)'; label.style.minWidth='140px';
+      const input = document.createElement('input'); input.id='offset_az'; input.name='offsetAz'; input.type='number'; input.step='0.1';
+      input.style.cssText='padding:6px;width:120px';
+      row.appendChild(label); row.appendChild(input); container.appendChild(row);
+    }
+
+    // EL
+    if (!document.getElementById('offset_el')){
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;margin:8px 0;';
+      const label = document.createElement('label'); label.htmlFor='offset_el'; label.textContent='Offset El (°)'; label.style.minWidth='140px';
+      const input = document.createElement('input'); input.id='offset_el'; input.name='offsetEl'; input.type='number'; input.step='0.1';
+      input.style.cssText='padding:6px;width:120px';
+      row.appendChild(label); row.appendChild(input); container.appendChild(row);
+    }
+
+    // Reset
+    if (!document.getElementById('offset_reset')){
+      const btn = document.createElement('button'); btn.id='offset_reset'; btn.textContent='Reset offset';
+      btn.style.cssText='padding:6px 10px;margin-top:6px;cursor:pointer;border-radius:4px';
+      container.appendChild(btn);
+    }
+
+    // Bind handlers idempotently
+    const azEl = document.getElementById('offset_az');
+    const elEl = document.getElementById('offset_el');
+    const resetEl = document.getElementById('offset_reset');
+
+    if (azEl){
+      azEl.min = limits.az.min; azEl.max = limits.az.max;
+      azEl.value = toFixed1(state.offsetAz);
+      if (!azEl._bound){
+        azEl.addEventListener('change', ()=> {
+          const v = clamp(parseFloat(azEl.value) || 0, limits.az.min, limits.az.max);
+          state.offsetAz = v;
+          azEl.value = toFixed1(v);
+          saveToStorage();
+        });
+        azEl._bound = true;
+      }
+    }
+
+    if (elEl){
+      elEl.min = limits.el.min; elEl.max = limits.el.max;
+      elEl.value = toFixed1(state.offsetEl);
+      if (!elEl._bound){
+        elEl.addEventListener('change', ()=> {
+          const v = clamp(parseFloat(elEl.value) || 0, limits.el.min, limits.el.max);
+          state.offsetEl = v;
+          elEl.value = toFixed1(v);
+          saveToStorage();
+        });
+        elEl._bound = true;
+      }
+    }
+
+    if (resetEl && !resetEl._bound){
+      resetEl.addEventListener('click', ()=> { resetGlobalOffset(); });
+      resetEl._bound = true;
+    }
+  }
+
+  function syncInputs(){
+    const a = document.getElementById('offset_az'), e = document.getElementById('offset_el');
+    if (a) { a.min = limits.az.min; a.max = limits.az.max; a.value = toFixed1(state.offsetAz); }
+    if (e) { e.min = limits.el.min; e.max = limits.el.max; e.value = toFixed1(state.offsetEl); }
+  }
+
+  // ----- Math helpers for rotations -----
+  function mulMatVec(M, v){
+    return [
+      M[0][0]*v[0] + M[0][1]*v[1] + M[0][2]*v[2],
+      M[1][0]*v[0] + M[1][1]*v[1] + M[1][2]*v[2],
+      M[2][0]*v[0] + M[2][1]*v[1] + M[2][2]*v[2]
+    ];
+  }
+  function mul3(A,B){
+    const C = [];
+    for (let i=0;i<3;i++){ C[i]=[]; for (let j=0;j<3;j++){ let s=0; for (let k=0;k<3;k++) s+=A[i][k]*B[k][j]; C[i][j]=s; } }
+    return C;
+  }
+  function rodriguesMatrix(axis, ang){
+    const ux=axis[0], uy=axis[1], uz=axis[2];
+    const c=Math.cos(ang), s=Math.sin(ang);
+    return [
+      [ c + ux*ux*(1-c),     ux*uy*(1-c) - uz*s, ux*uz*(1-c) + uy*s ],
+      [ uy*ux*(1-c) + uz*s,  c + uy*uy*(1-c),    uy*uz*(1-c) - ux*s ],
+      [ uz*ux*(1-c) - uy*s,  uz*uy*(1-c) + ux*s, c + uz*uz*(1-c)    ]
+    ];
+  }
+
+  // ----- Normalize and write helpers (support arrays and objects) -----
+  function toVec(v){
+    if (!v) return [0,0,0];
+    if (v.x !== undefined && v.y !== undefined && v.z !== undefined) return [v.x, v.y, v.z];
+    if (Array.isArray(v)) return [v[0]||0, v[1]||0, v[2]||0];
+    return [0,0,0];
+  }
+  function writeSame(orig, vec){
+    if (orig && orig.x !== undefined){
+      orig.x = vec[0]; orig.y = vec[1]; orig.z = vec[2];
+      return orig;
+    } else {
+      return [vec[0], vec[1], vec[2]];
+    }
+  }
+
+  // ----- Wrapper factory (applique Az puis El autour d'un axe configurable) -----
+  function makeWrapper(origFn){
+    return function wrappedGetCameraRays(...args){
+      const result = origFn.apply(this, args);
+      try {
+        // support result as array [top,left,fwd] OR object { rays: [...] }
+        const containerIsArray = Array.isArray(result);
+        const rays = containerIsArray ? result : (result && Array.isArray(result.rays) ? result.rays : null);
+        if (!rays) return result;
+
+        // read offsets (storage fallback)
+        const parsed = safeParse(localStorage.getItem(STORAGE_KEY) || '{}');
+        const azDeg = (typeof parsed.offsetAz === 'number') ? parsed.offsetAz : state.offsetAz;
+        const elDeg = (typeof parsed.offsetEl === 'number') ? parsed.offsetEl : state.offsetEl;
+        const azRad = toRad(Number(azDeg) || 0);
+        const elRad = toRad((Number(elDeg) || 0) * (cfg.signEl || 1));
+
+        // Rz (azimuth global)
+        const ca = Math.cos(azRad), sa = Math.sin(azRad);
+        const Rz = [[ca,-sa,0],[sa,ca,0],[0,0,1]];
+
+        // preserve original element types to restore arrays if needed
+        const origTypes = rays.map(r => (r && r.x !== undefined) ? 'obj' : 'arr');
+
+        // apply Rz to all rays
+        for (let i=0;i<rays.length;i++){
+          const v = rays[i];
+          const vec = toVec(v);
+          const r = mulMatVec(Rz, vec);
+          rays[i] = writeSame(v, r);
+        }
+
+        // choose axis for El
+        let axisVec;
+        const top = toVec(rays[0]), left = toVec(rays[1]), fwd = toVec(rays[2]);
+        if (cfg.axisForEl === 'top') axisVec = top;
+        else if (cfg.axisForEl === 'fwd') axisVec = fwd;
+        else axisVec = left; // default left
+
+        // normalize axis
+        const L = Math.hypot(axisVec[0], axisVec[1], axisVec[2]) || 1;
+        axisVec = [axisVec[0]/L, axisVec[1]/L, axisVec[2]/L];
+
+        // if no elevation, update rotationMatrix by Rz and return
+        if (Math.abs(elRad) < 1e-12){
+          if (!containerIsArray && result.rotationMatrix && Array.isArray(result.rotationMatrix) && result.rotationMatrix.length === 9){
+            const M = [
+              [ result.rotationMatrix[0], result.rotationMatrix[1], result.rotationMatrix[2] ],
+              [ result.rotationMatrix[3], result.rotationMatrix[4], result.rotationMatrix[5] ],
+              [ result.rotationMatrix[6], result.rotationMatrix[7], result.rotationMatrix[8] ]
+            ];
+            const RM = mul3(Rz, M);
+            result.rotationMatrix = [ RM[0][0],RM[0][1],RM[0][2], RM[1][0],RM[1][1],RM[1][2], RM[2][0],RM[2][1],RM[2][2] ];
+          }
+          if (cfg.debug) console.log('GOB applied (Az only)', { azDeg, elDeg });
+          window.__GOB_lastApplied = { az: azDeg, el: elDeg, axis: cfg.axisForEl, signEl: cfg.signEl, t: Date.now() };
+          // restore arrays where arrays were
+          for (let i=0;i<rays.length;i++){
+            if (origTypes[i] === 'arr' && rays[i] && rays[i].x !== undefined){
+              const o = rays[i];
+              rays[i] = [o.x, o.y, o.z];
+            }
+          }
+          return result;
+        }
+
+        // Rodrigues rotation matrix around axisVec by elRad
+        const Raxis = rodriguesMatrix(axisVec, elRad);
+
+        // apply Raxis to all rays
+        for (let i=0;i<rays.length;i++){
+          const v = rays[i];
+          const vec = toVec(v);
+          const r = mulMatVec(Raxis, vec);
+          rays[i] = writeSame(v, r);
+        }
+
+        // update rotationMatrix if present (pre-multiply by Raxis * Rz)
+        if (!containerIsArray && result.rotationMatrix && Array.isArray(result.rotationMatrix) && result.rotationMatrix.length === 9){
+          const M = [
+            [ result.rotationMatrix[0], result.rotationMatrix[1], result.rotationMatrix[2] ],
+            [ result.rotationMatrix[3], result.rotationMatrix[4], result.rotationMatrix[5] ],
+            [ result.rotationMatrix[6], result.rotationMatrix[7], result.rotationMatrix[8] ]
+          ];
+          const R = mul3(Raxis, Rz);
+          const RM = mul3(R, M);
+          result.rotationMatrix = [ RM[0][0],RM[0][1],RM[0][2], RM[1][0],RM[1][1],RM[1][2], RM[2][0],RM[2][1],RM[2][2] ];
+        }
+
+        // restore original element types if necessary (arrays)
+        for (let i=0;i<rays.length;i++){
+          if (origTypes[i] === 'arr' && rays[i] && rays[i].x !== undefined){
+            const o = rays[i];
+            rays[i] = [o.x, o.y, o.z];
+          }
+        }
+
+        window.__GOB_lastApplied = { az: azDeg, el: elDeg, axis: cfg.axisForEl, signEl: cfg.signEl, t: Date.now() };
+        if (cfg.debug) console.log('GOB applied', window.__GOB_lastApplied, 'rays:', rays);
+      } catch(e){
+        if (cfg.debug) console.error('GOB wrapper error', e);
+      }
+      return result;
+    };
+  }
+
+  // ----- Install wrapper idempotently and persistently -----
+  function installWrapper(){
+    try {
+      if (wrapperInstalled) return true;
+      if (typeof window.getCameraRays !== 'function') return false;
+      if (!origGetCameraRays) origGetCameraRays = window.getCameraRays;
+      // avoid double-wrap
+      if (origGetCameraRays && origGetCameraRays.__GOB_wrapped) { wrapperInstalled = true; return true; }
+      const wrapped = makeWrapper(origGetCameraRays);
+      wrapped.__GOB_wrapped = true;
+      wrapped.__orig = origGetCameraRays;
+      window.getCameraRays = wrapped;
+      wrapperInstalled = true;
+      window.__GOB_wrapper_installed = true;
+      if (cfg.debug) console.log('GOB wrapper installed');
+      return true;
+    } catch(e){ return false; }
+  }
+
+  // polling to wait for getCameraRays if defined later
+  function startPolling(){
+    if (wrapperInstalled) return;
+    let attempts = 0;
+    const h = setInterval(() => {
+      attempts++;
+      const ok = installWrapper();
+      if (ok || attempts > 400) { clearInterval(h); }
+    }, 250);
+  }
+
+  // reapply if overwritten
+  function watchAndReapply(){
+    let last = window.getCameraRays;
+    setInterval(() => {
+      if (window.getCameraRays !== last){
+        last = window.getCameraRays;
+        wrapperInstalled = false;
+        // small delay then reinstall
+        setTimeout(()=>{ installWrapper(); }, 50);
+      }
+    }, 300);
+  }
+
+  // ----- Init -----
+  loadFromStorage();
+  ensureInputsExist();
+  syncInputs();
+  startPolling();
+  watchAndReapply();
+
+  // expose some debug helpers
+  window.__GOB_debug = cfg;
+  window.__GOB_applyConfig = setGlobalOffsetConfig;
+  window.__GOB_installNow = installWrapper;
+  window.__GOB_isInstalled = () => wrapperInstalled;
+  if (cfg.debug) console.log('GlobalOffsetModule initialized');
+
+})();
+
+</script>
 
 </body>
 </html>
